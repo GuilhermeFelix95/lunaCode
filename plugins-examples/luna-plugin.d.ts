@@ -57,20 +57,6 @@ export interface LunaPluginApi {
   readonly ui: LunaPluginUi;
   /** Requer `theme`. Registra um tema que o usuário escolhe em Configurações > Aparência. */
   readonly theme: LunaPluginTheme;
-  /** Requer `skills`. Sem essa permissão, acessar `skills` recusa o plugin. */
-  readonly skills: LunaPluginSkills;
-}
-
-/** Skill instalada, sem o conteúdo do SKILL.md. */
-export interface LunaPluginSkill {
-  id: string;
-  name: string;
-  description: string;
-}
-
-/** Permissão `skills`. Só leitura: lista nome e descrição das skills instaladas. */
-export interface LunaPluginSkills {
-  list(): Promise<LunaPluginSkill[]>;
 }
 
 /** Permissão `theme`. */
