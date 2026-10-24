@@ -108,3 +108,45 @@
 
 ## Rodada 25
 - Como quer que eu confirme o bloqueio do login Google no navegador do Luna?: Eu abro o login do LinkedIn e clico em 'Continuar com Google', sem digitar senha
+
+## Atualização do main
+- Atualizar o main local para o origin/main (git pull --ff-only)?: Sim, atualizar o main local
+
+## Rodada 26
+- O que apareceu junto com o bloco que ficou como código?: Nenhum aviso
+- Você consegue colar o texto cru da resposta que falhou?: [{"pergunta": "Quais pendências entram no plano? (pode marcar mais de uma)", "opcoes": ["Porta 5251 x 5252 e aviso quando a API não responde", "Mímica: impedir que o desafiado confirme a própria mímica", "Partida só com máquinas e chance 0, que nunca termina", "Som de torcida e vaias (ainda não implementado)", "Tabela de pontuação e penalidades (ajuste)", "Quantidade de equipes variável de 2 a 8", "Validação de pares da memória no servidor
+
+## Rodada 27
+- O que você quer planejar agora?: Corrigir o bloco de perguntas que aparece como código
+- Em qual projeto estão as pendências do jogo?: desoncidere isso do jogo é um exemplo que te mandei
+
+## Rodada 28
+- Em qual modo você estava quando o bloco apareceu como código?: sem ser no modo planejar
+- Para modos que não declaram questions, o que deve acontecer?: Mostrar o seletor também nesses modos
+- Se o bloco vier sem o fechamento da cerca, o que mostrar?: Mostrar aviso e esconder o bloco cru
+
+## Rodada 29
+- Modo que declara questions: false (explícito): o que deve acontecer?: Manter como texto, sem protocolo e sem seletor
+
+## Rodada 30
+- Quando o bloco não tem a cerca de fechamento, o que esconder além do aviso?: o corretp é sempre ter uai, nao deve nunca aparecer o seletor daquela forma
+- Quando o bloco tem a cerca fechada mas o JSON é inválido, o que fazer?: Esconder o bloco e mostrar só o aviso
+
+## Rodada 31
+- Como comparar os nomes das pastas para ordenar em ordem alfabética?: Ignorando maiúsculas e acentos (ex.: 'Álbum' vem depois de 'Alfa')
+- Dentro de cada projeto, as conversas continuam da mais recente para a mais antiga?: Sim, como hoje
+- Se duas pastas tiverem o mesmo nome em caminhos diferentes, como desempatar?: Pelo caminho completo
+
+## Rodada 32
+- Onde a ordem alfabética deve valer?: Só na barra lateral (lista de projetos)
+- Algum projeto deve continuar fixo no topo, como o que tem a conversa aberta?: Não, ordem alfabética pura
+
+## Rodada 33
+- Pela regra 'ignorando maiúsculas e acentos', 'Álbum' vem antes de 'Alfa' (o 'b' vem antes do 'f'). Seu exemplo disse o contrário. Qual ordem devo usar?: Álbum antes de Alfa (ordem pelas letras, sem acento e sem maiúscula)
+
+## Rodada 34
+- A ordenação alfabética da barra lateral entra neste plano ou em um plano separado? A spec de perguntas não cobre ordenação.: Neste plano
+- A spec de perguntas já está atendida pelo código deste branch. O que você quer no plano?: Só revisar, testar e registrar
+
+## Rodada 35
+- Qual formato usar nas novas linhas do MEMORY.md? O arquivo atual usa 'AAAA-MM-DD | o que mudou', e o CLAUDE.md pede 'AAAA-MM-DD: o que foi feito'.: AAAA-MM-DD: o que foi feito (CLAUDE.md)
