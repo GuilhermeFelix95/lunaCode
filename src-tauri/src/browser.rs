@@ -740,10 +740,38 @@ fn wait_until_loaded() {
     }
 }
 
+/// Acesso à página da aba ativa. A implementação real fala com a webview; os testes usam uma falsa.
+trait BrowserPage {
+    fn reply(&self, method: &str, args: &[Value]) -> Result<Value, String>;
+}
+
+/// Permissão da pessoa para ações sensíveis. A implementação real pergunta no chat da conversa.
+trait ActionGate {
+    fn confirm(&self, run_id: &str, action: &str, name: &str) -> Result<(), String>;
+}
+
+/// Página real: chama o script na webview da aba ativa e devolve a resposta já lida.
+struct AppPage;
+
+impl BrowserPage for AppPage {
+    fn reply(&self, method: &str, args: &[Value]) -> Result<Value, String> {
+        let view = webview()?;
+        browser_actions::parse_page_reply(&eval_and_wait(&view, page_call(method, args))?)
+    }
+}
+
+/// Permissão real: pergunta no chat da conversa que roda o turno.
+struct AppGate;
+
+impl ActionGate for AppGate {
+    fn confirm(&self, run_id: &str, action: &str, name: &str) -> Result<(), String> {
+        confirm(run_id, action, name)
+    }
+}
+
 /// Chama um método do script da página na aba ativa e devolve a resposta já lida.
 fn page_reply(method: &str, args: &[Value]) -> Result<Value, String> {
-    let view = webview()?;
-    browser_actions::parse_page_reply(&eval_and_wait(&view, page_call(method, args))?)
+    AppPage.reply(method, args)
 }
 
 /// Lista numerada dos elementos da página, com a referência de cada um.
@@ -759,17 +787,21 @@ fn reference(args: &Value) -> Result<u64, String> {
 /// Clique ou digitação numa referência. Antes de clicar, confere o nome do elemento: ação sensível pede a
 /// permissão da pessoa no chat, e sem permissão o clique não acontece.
 fn tool_act(run_id: &str, action: &str, args: &Value) -> Result<String, String> {
+    act_with(&AppPage, &AppGate, run_id, action, args)
+}
+
+fn act_with(page: &dyn BrowserPage, gate: &dyn ActionGate, run_id: &str, action: &str, args: &Value) -> Result<String, String> {
     let reference = reference(args)?;
-    let info = page_reply("inspect", &[json!(reference)])?;
+    let info = page.reply("inspect", &[json!(reference)])?;
     if info["ok"].as_bool() != Some(true) {
         return Err(browser_actions::page_error(&info));
     }
     let name = info["name"].as_str().unwrap_or_default();
     if action == "click" && browser_actions::is_sensitive(name) {
-        confirm(run_id, action, name)?;
+        gate.confirm(run_id, action, name)?;
     }
     let value = args["text"].as_str().unwrap_or_default();
-    let reply = page_reply("act", &[json!(reference), json!(action), json!(value)])?;
+    let reply = page.reply("act", &[json!(reference), json!(action), json!(value)])?;
     if reply["ok"].as_bool() == Some(true) {
         Ok(format!("ok: {action} em [{reference}] \"{name}\""))
     } else {
@@ -1225,6 +1257,53 @@ mod tests {
     fn a_sensitive_action_without_a_conversation_to_ask_is_refused() {
         let refused = confirm("", "click", "Comprar agora").unwrap_err();
         assert!(refused.contains("não há conversa"), "{refused}");
+    }
+
+    /// Página falsa: responde ao inspect com um botão sensível e registra se o clique chegou a ser enviado.
+    struct FakePage {
+        clicks: std::cell::Cell<u32>,
+    }
+
+    impl BrowserPage for FakePage {
+        fn reply(&self, method: &str, _args: &[Value]) -> Result<Value, String> {
+            match method {
+                "inspect" => Ok(json!({ "ok": true, "name": "Publicar" })),
+                "act" => {
+                    self.clicks.set(self.clicks.get() + 1);
+                    Ok(json!({ "ok": true }))
+                }
+                other => Err(format!("método inesperado no teste: {other}")),
+            }
+        }
+    }
+
+    /// Permissão falsa: a pessoa nega (ou aprova) sem abrir o chat.
+    struct FakeGate {
+        allow: bool,
+    }
+
+    impl ActionGate for FakeGate {
+        fn confirm(&self, _run_id: &str, _action: &str, _name: &str) -> Result<(), String> {
+            if self.allow { Ok(()) } else { Err("negado pela pessoa no app".into()) }
+        }
+    }
+
+    /// Clique sensível sem permissão não chega à página.
+    #[test]
+    fn a_sensitive_click_denied_by_the_person_never_reaches_the_page() {
+        let page = FakePage { clicks: std::cell::Cell::new(0) };
+        let result = act_with(&page, &FakeGate { allow: false }, "run-x", "click", &json!({ "ref": 1 }));
+        assert!(result.is_err());
+        assert_eq!(page.clicks.get(), 0);
+    }
+
+    /// Com a permissão da pessoa, o mesmo clique sensível chega à página uma vez.
+    #[test]
+    fn a_sensitive_click_approved_by_the_person_reaches_the_page() {
+        let page = FakePage { clicks: std::cell::Cell::new(0) };
+        let result = act_with(&page, &FakeGate { allow: true }, "run-x", "click", &json!({ "ref": 1 }));
+        assert!(result.is_ok());
+        assert_eq!(page.clicks.get(), 1);
     }
 
     #[test]
