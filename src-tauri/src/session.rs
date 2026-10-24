@@ -81,8 +81,15 @@ impl Session {
         // Com perfil de API, o perfil já trouxe o bloco `provider` nessa mesma variável: as duas configs se juntam.
         if request.provider == ProviderKind::OpenCode {
             let profile = env.iter().find(|(k, _)| k == "OPENCODE_CONFIG_CONTENT").map(|(_, v)| v.clone());
+            // Fora de uso (sem modo navegador nem painel aberto), o navegador vira o embutido, que não
+            // tem servidor MCP: as ferramentas do Playwright ficam fora do pedido (ver browser_in_use).
+            let browser = if crate::providers::browser_in_use(request) {
+                request.browser
+            } else {
+                crate::providers::AgentBrowser::Builtin
+            };
             let config = crate::providers::opencode::merge_profile(
-                &crate::providers::opencode::config_content(request.permission, request.browser),
+                &crate::providers::opencode::config_content(request.permission, browser),
                 profile.as_deref(),
             );
             env.retain(|(k, _)| k != "OPENCODE_CONFIG_CONTENT");
