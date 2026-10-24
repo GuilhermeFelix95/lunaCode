@@ -1,6 +1,6 @@
 # MEMORY — LunaHarnes
 
-Formato: `AAAA-MM-DD | o que mudou` (ordem cronológica, linhas antigas nunca são reescritas).
+Formato: `AAAA-MM-DD: o que foi feito` (ordem cronológica, linhas antigas nunca são reescritas).
 
 2026-10-17 | Projeto criado com plano aprovado: Tauri 2 + React/TS, integração por subprocesso (claude stream-json / codex --json), plugins por manifesto + JS/TS, MVP de chat único com troca de provedor.
 2026-10-17 | Repositório Git iniciado, `.gitignore` e `docs/stack.md` criados.
@@ -292,3 +292,9 @@ Formato: `AAAA-MM-DD | o que mudou` (ordem cronológica, linhas antigas nunca s�
 2026-10-24 | Login do Google passa a abrir no navegador padrão do sistema, fora do navegador do Luna
 2026-10-24 | Branch feat/navegador-tarefas mesclada no main; versão 0.3.0 preparada para release
 2026-10-24: Release 0.3.0 publicada como latest (tag v0.3.0, commit b306603): instalador e latest.json assinados com o release:app. Testes: vitest (829) e cargo (473) passando; tsc limpo.
+2026-10-24: Bloco de perguntas malformado é escondido no chat com aviso; modo sem o campo questions passa a mostrar o seletor.
+2026-10-24: Projetos da barra lateral em ordem alfabética, ignorando maiúsculas e acentos; nomes iguais desempatam pelo caminho.
+2026-10-24: Compactação automática volta a 90% da janela; análise de consumo de tokens feita por leitura de código, sem outra correção confirmada.
+2026-10-24: Plugin de roteamento de skills em rascunho, com permissão skills para ler a lista; a dica sugere só as skills que batem com o pedido.
+2026-10-24: Roteador de skills abandonado: a permissão skills foi revertida e o rascunho do plugin apagado, porque o CLI não permite desligar skills por turno.
+2026-10-24: Instalador do Windows com imagens da Luna no cabeçalho e na lateral; assinatura gratuita aguarda inscrição na SignPath.

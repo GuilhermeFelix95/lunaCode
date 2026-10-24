@@ -322,6 +322,22 @@ mod tests {
     }
 
     #[test]
+    fn lista_so_as_pastas_com_skill_valida() {
+        let home = temp("listagem");
+        let root = home.join(".claude/skills");
+        fs::create_dir_all(root.join("valida")).unwrap();
+        fs::write(root.join("valida/SKILL.md"), GOOD).unwrap();
+        fs::create_dir_all(root.join("sem-frontmatter")).unwrap();
+        fs::write(root.join("sem-frontmatter/SKILL.md"), "sem frontmatter").unwrap();
+        fs::create_dir_all(root.join("vazia")).unwrap();
+
+        let listed = list_in(&home);
+        assert_eq!(listed.len(), 1);
+        assert_eq!(listed[0].id, "valida");
+        assert_eq!(listed[0].description, "Revisa mudanças");
+    }
+
+    #[test]
     fn catalogo_oficial_passa_na_validacao() {
         assert!(official().is_ok());
     }

@@ -18,30 +18,36 @@ export interface ReplyParts {
   warning?: string;
 }
 
-/// Um turno pode fazer perguntas no seletor quando é de planejamento, quando não tem modo (envio comum)
-/// ou quando o modo declara `questions`. Modo com `questions: false` fica com a resposta como texto.
+/// Um turno pode fazer perguntas no seletor, a não ser que o modo declare `questions: false`.
+/// Sem modo (envio comum), modo sem o campo ou plano, a pergunta vai para o seletor.
 export function turnAsksQuestions(plan: boolean, mode: { id: string; questions?: boolean } | undefined): boolean {
-  return plan || mode === undefined || (mode.questions ?? mode.id === "ask");
+  return plan || mode?.questions !== false;
 }
 
 const BLOCK = /```luna-perguntas\s*\n([\s\S]*?)\n```/;
+const UNCLOSED_BLOCK = /```luna-perguntas[\s\S]*$/;
 const MAX_OPTIONS = 6;
-const MALFORMED = "As perguntas vieram num formato inválido. Elas aparecem como texto abaixo.";
+const MALFORMED = "As perguntas vieram num formato inválido, então não foram mostradas.";
 
 /// Separa o bloco de perguntas da explicação. Sem bloco, devolve a resposta inteira.
+/// Bloco malformado (sem fechamento, JSON ou formato inválido) é sempre escondido, com aviso.
 export function extractQuestions(reply: string): ReplyParts {
   const match = BLOCK.exec(reply);
-  if (!match) return { text: reply, questions: null };
+  if (!match) {
+    if (!UNCLOSED_BLOCK.test(reply)) return { text: reply, questions: null };
+    return { text: reply.replace(UNCLOSED_BLOCK, "").trim(), questions: null, warning: MALFORMED };
+  }
 
+  const textWithoutBlock = reply.replace(BLOCK, "").trim();
   let raw: unknown;
   try {
     raw = JSON.parse(match[1]);
   } catch {
-    return { text: reply, questions: null, warning: MALFORMED };
+    return { text: textWithoutBlock, questions: null, warning: MALFORMED };
   }
   const questions = parseQuestions(raw);
-  if (!questions) return { text: reply, questions: null, warning: MALFORMED };
-  return { text: reply.replace(BLOCK, "").trim(), questions };
+  if (!questions) return { text: textWithoutBlock, questions: null, warning: MALFORMED };
+  return { text: textWithoutBlock, questions };
 }
 
 /// Confere a forma do JSON: uma lista de perguntas, cada uma com 2 a 6 opções em texto.
