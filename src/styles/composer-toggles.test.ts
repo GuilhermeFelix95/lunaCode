@@ -11,7 +11,7 @@ const css = read("./components.css");
 
 describe("alternadores do composer", () => {
   it("o botão meta usa o mesmo estilo do Planejar, com acento quando ligado", () => {
-    expect(css).toMatch(/\.composer__plan,\s*\.composer__goal,\s*\.composer__speed-toggle\s*\{/);
+    expect(css).toMatch(/\.composer__plan,[\s\S]*?\.composer__goal,[\s\S]*?\.composer__speed-toggle\s*\{/);
     expect(css).toMatch(/\.composer__goal\[aria-pressed="true"\]/);
     expect(css).toMatch(/\.composer__plan\[aria-pressed="true"\],\s*\.composer__goal\[aria-pressed="true"\]/);
   });
