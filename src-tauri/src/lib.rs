@@ -8,6 +8,8 @@ pub mod browser;
 pub mod browser_actions;
 pub mod browser_bookmarks;
 pub mod browser_tabs;
+#[cfg(test)]
+mod browser_tests;
 pub mod browser_history;
 pub mod browser_import;
 pub mod changes;
