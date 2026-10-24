@@ -13,6 +13,34 @@ const manifest = (overrides: Partial<PluginManifest> = {}): PluginManifest => ({
 const plugin = (activate: PluginModule["activate"]) => async () => ({ activate });
 
 describe("PluginHost", () => {
+  it("entrega a lista de skills ao plugin que tem a permissão skills", async () => {
+    const skills = [{ id: "revisar", name: "Revisar", description: "Revisa mudanças" }];
+    const host = new PluginHost(async () => skills);
+    let listed: unknown;
+    await host.load(
+      manifest({ permissions: ["skills"] }),
+      plugin(async (api) => {
+        listed = await api.skills.list();
+      }),
+    );
+
+    expect(host.errors).toEqual([]);
+    expect(listed).toEqual(skills);
+  });
+
+  it("recusa o acesso às skills sem a permissão skills", async () => {
+    const host = new PluginHost(async () => [{ id: "revisar", name: "Revisar", description: "x" }]);
+    const loaded = await host.load(
+      manifest({ permissions: ["commands"] }),
+      plugin((api) => {
+        void api.skills;
+      }),
+    );
+
+    expect(loaded).toBe(false);
+    expect(host.errors.join(" ")).toContain('"skills"');
+  });
+
   it("registra comando e executa com os argumentos após a barra", async () => {
     const host = new PluginHost();
     await host.load(

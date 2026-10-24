@@ -5,7 +5,7 @@ use serde::{Deserialize, Serialize};
 
 /// Permissões que o host sabe conceder. Qualquer outra recusa o plugin.
 /// `modes` só permite registrar modos que restringem (somente leitura); nunca amplia permissão.
-pub const KNOWN_PERMISSIONS: &[&str] = &["commands", "hooks", "modes", "cache", "ui", "theme", "autofix"];
+pub const KNOWN_PERMISSIONS: &[&str] = &["commands", "hooks", "modes", "cache", "ui", "theme", "autofix", "skills"];
 
 /// Conteúdo de `manifest.json`. A pasta do plugin precisa ter o mesmo nome do `id`.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
