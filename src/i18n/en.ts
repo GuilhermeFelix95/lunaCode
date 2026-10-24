@@ -604,7 +604,6 @@ export const en: Record<MessageKey, string> = {
   "composer.cloneAria": "Clone a site into the project (beta)",
   "composer.speed": "{speed} tokens/s",
   "composer.speedTitle": "Measured speed: model output tokens ÷ time since the first text",
-  "composer.speedAria": "Show response speed",
   "goal.shown": "Goal: round {round} of {max}",
   "goal.gaveUp": "The goal was not confirmed in {max} rounds. Stopped here.",
   "composer.stop": "Stop",

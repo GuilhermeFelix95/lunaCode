@@ -607,7 +607,6 @@ export const ptBR = {
   "composer.cloneAria": "Clonar um site para o projeto (beta)",
   "composer.speed": "{speed} tokens/s",
   "composer.speedTitle": "Velocidade medida: tokens de saída do modelo ÷ tempo desde o primeiro texto",
-  "composer.speedAria": "Mostrar velocidade da resposta",
   "goal.shown": "Meta: rodada {round} de {max}",
   "goal.gaveUp": "A meta não foi confirmada em {max} rodadas. Parei aqui.",
   "composer.stop": "Parar",

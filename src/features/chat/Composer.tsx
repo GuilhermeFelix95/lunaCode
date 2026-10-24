@@ -1,5 +1,5 @@
 import { useEffect, useImperativeHandle, useRef, useState, type KeyboardEvent, type Ref } from "react";
-import { ArrowUp, Gauge, Paperclip, Square, X } from "lucide-react";
+import { ArrowUp, Paperclip, Square, X } from "lucide-react";
 import type { Account, ModelOption, Permission } from "../../types";
 import type { AgentOption } from "../../chat/agents";
 import type { PluginMode } from "../../plugins/host";
@@ -76,11 +76,8 @@ interface ComposerProps {
   onClone?: () => void;
   /** Sem pasta de projeto não há onde salvar o clone: o botão fica indisponível, com o motivo no título. */
   cloneDisabledReason?: string;
-  /** Tokens por segundo estimados da resposta em curso. Null = não mostra. */
+  /** Velocidade medida (tokens por segundo) da resposta em curso ou a última. Null = sem dados, não mostra. */
   speed?: number | null;
-  /** Opção de ver a velocidade durante a resposta. */
-  showSpeed?: boolean;
-  onToggleSpeed?: () => void;
   /** Imagens anexadas (miniaturas) e os gestos para anexar e tirar. */
   attachments?: { id: number; url: string }[];
   onAttach?: (file: File) => void;
@@ -308,7 +305,7 @@ export function Composer(props: ComposerProps) {
             />
           )}
         </div>
-        {props.showSpeed && props.speed != null && (
+        {props.speed != null && (
           <span className="composer__speed" title={t("composer.speedTitle")}>
             {t("composer.speed", { speed: props.speed })}
           </span>
@@ -384,16 +381,6 @@ export function Composer(props: ComposerProps) {
               )}
             </>
           )}
-          <button
-            type="button"
-            className="composer__speed-toggle"
-            aria-label={t("composer.speedAria")}
-            title={t("composer.speedAria")}
-            aria-pressed={props.showSpeed ?? false}
-            onClick={props.onToggleSpeed}
-          >
-            <Gauge size={16} aria-hidden="true" />
-          </button>
           {running ? (
             <button type="submit" className="composer__action composer__action--stop" aria-label={t("composer.stop")}>
               <Square size={12} fill="currentColor" aria-hidden="true" />
