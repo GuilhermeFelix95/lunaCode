@@ -1747,6 +1747,7 @@ ${outgoing}`
         browser={
           <BrowserPanel
             active={visible && sideOpen && sideTab === "browser"}
+            project={cwd || undefined}
             openRequest={browserRequest}
             toolbarStart={
               browserMode ? (

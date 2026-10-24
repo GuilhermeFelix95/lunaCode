@@ -55,15 +55,17 @@ pub fn args(request: &RunRequest) -> Vec<String> {
     let tasks = crate::tasks_mcp::command();
     args.extend(["-c".to_string(), format!("mcp_servers.{}.command=\"{}\"", crate::tasks_mcp::SERVER, tasks[0])]);
     args.extend(["-c".to_string(), format!("mcp_servers.{}.args=[\"{}\"]", crate::tasks_mcp::SERVER, tasks[1])]);
-    // Navegador do Playwright só quando escolhido: o Codex sobe o servidor por override de config (sem mexer no config do usuário).
-    if request.browser == AgentBrowser::Playwright {
+    // Navegador do Playwright só quando escolhido e em uso (modo navegador ou painel aberto, como no
+    // Claude): o Codex sobe o servidor por override de config (sem mexer no config do usuário).
+    // Fora de uso, as ferramentas ficavam no prefixo de todo turno sem ninguém pedir.
+    if super::browser_in_use(request) && request.browser == AgentBrowser::Playwright {
         let (command, server_args) = crate::playwright::server_command();
         let list: Vec<String> = server_args.iter().map(|a| format!("\"{a}\"")).collect();
         args.extend(["-c".to_string(), format!("mcp_servers.playwright.command=\"{command}\"")]);
         args.extend(["-c".to_string(), format!("mcp_servers.playwright.args=[{}]", list.join(","))]);
     }
-    // Navegador embutido: o mesmo servidor que o Claude recebe, por override de config.
-    if request.browser == AgentBrowser::Builtin {
+    // Navegador embutido: o mesmo servidor que o Claude recebe, pela mesma regra de uso.
+    if super::browser_in_use(request) && request.browser == AgentBrowser::Builtin {
         if let Some(server) = crate::browser::mcp_server() {
             args.extend(browser_server_flags(server));
         }
@@ -454,7 +456,7 @@ mod tests {
     }
 
     #[test]
-    fn playwright_is_added_only_when_chosen() {
+    fn playwright_is_added_only_when_chosen_and_in_use() {
         let mut request = RunRequest {
             provider: crate::providers::ProviderKind::Codex,
             prompt: "x".into(),
@@ -474,6 +476,10 @@ mod tests {
         assert!(!args(&request).iter().any(|a| a.contains("mcp_servers.playwright")));
 
         request.browser = crate::providers::AgentBrowser::Playwright;
+        // Escolhido, mas fora de uso (sem modo navegador nem painel aberto): o servidor fica de fora.
+        assert!(!args(&request).iter().any(|a| a.contains("mcp_servers.playwright")));
+
+        request.browser_mode = true;
         let flags = args(&request);
         assert!(flags.iter().any(|a| a.starts_with("mcp_servers.playwright.command=")));
         assert!(flags.iter().any(|a| a.starts_with("mcp_servers.playwright.args=") && a.contains("@playwright/mcp")));

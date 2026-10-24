@@ -15,6 +15,7 @@ import {
   browserSetEconomy,
   browserShow,
   browserTranslate,
+  browserSetProject,
   browserState,
   browserSwitchTab,
   browserFillLogin,
@@ -38,6 +39,8 @@ import { BookmarkBar } from "./BookmarkBar";
 interface BrowserPanelProps {
   /** Aba do navegador à mostra. Fora dela, a página sai de cena para não cobrir o chat. */
   active: boolean;
+  /** Pasta do projeto da conversa. O navegador mostra só as abas dela. */
+  project?: string;
   /** Endereço pedido de fora (Ctrl+clique num link do chat): abre numa aba nova. */
   openRequest?: { url: string } | null;
   /** Controles fixos no início da faixa de abas (ex.: voltar ao LunaCode). Ausente = nada ali. */
@@ -92,7 +95,7 @@ function hostnameOf(url: string): string {
 let browserOwner: object | null = null;
 
 /// Navegador embutido, com várias abas. Cada aba é uma webview filha da janela, então não usa iframe e funciona com sites que bloqueiam iframes.
-export function BrowserPanel({ active, openRequest, toolbarStart, toolbarEnd }: BrowserPanelProps) {
+export function BrowserPanel({ active, project, openRequest, toolbarStart, toolbarEnd }: BrowserPanelProps) {
   const area = useRef<HTMLDivElement>(null);
   const addressInput = useRef<HTMLInputElement>(null);
   // Guarda a função de atalhos mais recente, para os ouvintes (criados uma vez) não usarem abas antigas.
@@ -119,8 +122,9 @@ export function BrowserPanel({ active, openRequest, toolbarStart, toolbarEnd }: 
   const needle = visitQuery.trim().toLowerCase();
   const shownVisits = (visits ?? []).filter((visit) => visit.url.toLowerCase().includes(needle)).slice(0, HISTORY_RESULTS);
 
-  // Ao montar, lê as abas que já estão abertas (elas sobrevivem a fechar o painel) e os favoritos.
+  // Sem projeto, lê as abas que já estão abertas (elas sobrevivem a fechar o painel). Com projeto, o efeito abaixo lê.
   useEffect(() => {
+    if (project) return;
     browserState().then(
       (state) => {
         setTabs(state.tabs);
@@ -130,6 +134,29 @@ export function BrowserPanel({ active, openRequest, toolbarStart, toolbarEnd }: 
       },
       () => {},
     );
+  }, [project]);
+
+  // Com o painel à mostra, o navegador passa a mostrar as abas do projeto desta conversa.
+  useEffect(() => {
+    if (!active || !project) return;
+    let stale = false;
+    browserSetProject(project)
+      .then(() => browserState())
+      .then((state) => {
+        if (stale) return;
+        setTabs(state.tabs);
+        setCurrent(state.active);
+        setAddress(state.tabs.find((tab) => tab.id === state.active)?.url ?? "");
+        setAdblock(state.adblock);
+      })
+      .catch(() => {});
+    return () => {
+      stale = true;
+    };
+  }, [active, project]);
+
+  // Favoritos são do app inteiro, então leem uma vez, ao montar.
+  useEffect(() => {
     browserBookmarks().then(setBookmarks, () => {});
   }, []);
 

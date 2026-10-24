@@ -265,7 +265,7 @@ export const en: Record<MessageKey, string> = {
   "sound.lua": "Moon",
   "sound.miau": "Meow",
   "sound.pop": "Pop",
-  "conversation.autoCompact": "Compact automatically when the context goes past 90%",
+  "conversation.autoCompact": "Compact automatically when the context goes past 70%",
   "conversation.longCache": "Long cache (1 h) for Anthropic API keys",
   "conversation.longCacheHint":
     "The 1 h cache keeps the context longer between messages: writing to the cache costs more, reading it costs less. It only applies to Anthropic keys.",

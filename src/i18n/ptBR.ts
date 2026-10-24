@@ -266,7 +266,7 @@ export const ptBR = {
   "sound.lua": "Lua",
   "sound.miau": "Miau",
   "sound.pop": "Pop",
-  "conversation.autoCompact": "Compactar sozinha quando o contexto passar de 90%",
+  "conversation.autoCompact": "Compactar sozinha quando o contexto passar de 70%",
   "conversation.longCache": "Cache longo (1 h) para chaves de API da Anthropic",
   "conversation.longCacheHint":
     "O cache de 1 h mantém o contexto por mais tempo entre as mensagens: escrever no cache custa mais, reler custa menos. Só vale para chave da Anthropic.",

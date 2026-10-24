@@ -219,6 +219,10 @@ pub const LUNA_IDENTITY: &str = "Você é a Luna, o assistente do aplicativo Lun
 /// Instruções da Luna no modo navegador: só o que o modo faz hoje, sem o guia de plugins nem as regras do LunaCode.
 pub const BROWSER_IDENTITY: &str = "Você é a Luna, a assistente do modo navegador do LunaCode. Você ajuda a entender e a usar a página aberta no navegador do app. Você pode resumir a página, explicar o conteúdo dela, preencher formulários e agir na página quando a pessoa pedir: abrir um endereço, listar os elementos da página com referências, clicar, digitar, rolar, apertar teclas como Esc, esperar um texto aparecer e fechar modais. Ações sensíveis (comprar, pagar, enviar, publicar, excluir, confirmar) só acontecem com a permissão da pessoa. Se a página pedir login, CAPTCHA ou confirmação de conta, pare e peça que a pessoa resolva na página. Você também pode pesquisar na web pelo motor escolhido nas configurações do navegador, e ler os links dos resultados. Você não gerencia favoritos nem histórico: se perguntarem, diga que isso não é feito por você e que a pessoa usa a barra de favoritos e o histórico do navegador. Ao falar do que pode fazer, cite só estas capacidades. Não fale de plugins, modos nem do guia do LunaCode.";
 
+/// Instrução de economia de saída, no fim das identidades: menos tokens gastos e resposta mais útil.
+/// Sem aspas nem quebra de linha, como o resto da identidade (o Codex recebe o texto em string TOML).
+const CONCISE: &str = " Responda com concisão: vá direto ao ponto em poucas linhas, sem repetir o que já foi dito, sem resumir o próprio trabalho e sem listar o óbvio; só detalhe quando pedirem.";
+
 /// Identidade mais os dados da conversa: modelo, esforço e janela de contexto. Sem aspas nem quebras de linha.
 pub fn identity_for(request: &RunRequest) -> String {
     let model = match &request.model {
@@ -235,7 +239,7 @@ pub fn identity_for(request: &RunRequest) -> String {
     };
     // No modo navegador a identidade é a do navegador: não leva o guia nem a pasta de rascunhos de plugins.
     if request.browser_mode {
-        return format!("{BROWSER_IDENTITY} {model}{effort}{window}");
+        return format!("{BROWSER_IDENTITY} {model}{effort}{window}{CONCISE}");
     }
     // Caminho do guia, para o agente ler antes de criar um plugin (ver plugins/guide.rs).
     let guide = match crate::plugins::guide::dir() {
@@ -247,7 +251,14 @@ pub fn identity_for(request: &RunRequest) -> String {
         Some(dir) => format!(" Pasta de rascunhos de plugin: {}.", dir.display()),
         None => String::new(),
     };
-    format!("{LUNA_IDENTITY} {model}{effort}{window}{guide}{drafts}")
+    format!("{LUNA_IDENTITY} {model}{effort}{window}{guide}{drafts}{CONCISE}")
+}
+
+/// O navegador do agente só entra no turno quando está em uso: modo navegador ligado ou o painel do
+/// navegador já aberto nesta execução do app (ver `browser::is_used`). Fora disso, as 9 ferramentas
+/// do MCP ficavam no prefixo de todo turno sem ninguém pedir — tokens gastos à toa.
+pub fn browser_in_use(request: &RunRequest) -> bool {
+    request.browser_mode || crate::browser::is_used()
 }
 
 /// Tipo MIME de uma imagem aceita, pela extensão. \`None\` = formato não suportado.
@@ -335,6 +346,28 @@ mod tests {
         let req = request(ProviderKind::Codex, Permission::ReadOnly, None);
 
         assert!(identity_for(&req).starts_with(LUNA_IDENTITY));
+    }
+
+    /// Economia de saída: as duas identidades pedem resposta curta, sem aspas nem quebra de linha.
+    #[test]
+    fn identity_asks_for_concise_answers_in_both_modes() {
+        let mut req = request(ProviderKind::Claude, Permission::ReadOnly, None);
+        for browser_mode in [false, true] {
+            req.browser_mode = browser_mode;
+            let identity = identity_for(&req);
+            assert!(identity.contains("concisão"), "modo navegador: {browser_mode}");
+            assert!(!identity.contains('\n') && !identity.contains('"'), "modo navegador: {browser_mode}");
+        }
+    }
+
+    /// O navegador do agente entra no turno só quando em uso: modo navegador ligado ou painel já aberto.
+    #[test]
+    fn browser_is_in_use_only_in_browser_mode_or_after_the_panel_opened() {
+        let mut req = request(ProviderKind::Claude, Permission::ReadOnly, None);
+        assert_eq!(browser_in_use(&req), crate::browser::is_used());
+
+        req.browser_mode = true;
+        assert!(browser_in_use(&req));
     }
 
     fn request(provider: ProviderKind, permission: Permission, session_id: Option<&str>) -> RunRequest {

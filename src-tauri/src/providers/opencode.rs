@@ -44,20 +44,39 @@ pub fn merge_profile(config: &str, profile: Option<&str>) -> String {
 /// do servidor como chamadas diretas: elas ficam no namespace `tools.playwright`, dentro da ferramenta `execute`.
 const PLAYWRIGHT_NOTE: &str = "Navegador: use a ferramenta execute. As ferramentas do Playwright ficam no namespace tools.playwright; ache-as com search({ namespace: \"playwright\" }) e chame com await tools.playwright.<nome>({ ... }), por exemplo await tools.playwright.browser_navigate({ url: \"https://exemplo.com\" }). Não use o navegador embutido do Luna.";
 
-/// Prompt que vai pelo stdin. Com o Playwright escolhido, a orientação vem antes da mensagem da pessoa.
+/// O `execute` (Code Mode) não expõe o shell embutido: o comando é a ferramenta direta `shell`, e `tools.shell`
+/// não existe lá. Sem esta orientação o modelo tenta rodar comandos pelo `execute`, leva "Unknown tool" e perde turnos.
+const SHELL_NOTE: &str = "Comandos de terminal: use a ferramenta direta `shell` (não o `execute`; tools.shell não existe no Code Mode). O `execute` serve só para as ferramentas dos servidores MCP, como tools.playwright.* e tools.lunatasks.*.";
+
+/// Prompt que vai pelo stdin. As orientações vêm antes da mensagem da pessoa, na ordem: shell primeiro,
+/// navegador depois. A nota do shell só entra nos modos que liberam a ferramenta (`AcceptEdits` e `FullAccess`):
+/// em somente-leitura ela induziria o modelo a tentar uma ferramenta negada.
 pub fn prompt(request: &RunRequest) -> String {
-    match request.browser {
-        AgentBrowser::Playwright => format!("{PLAYWRIGHT_NOTE}\n\n{}", request.prompt),
-        AgentBrowser::Builtin => request.prompt.clone(),
+    let mut notes: Vec<&str> = Vec::new();
+    if !matches!(request.permission, Permission::ReadOnly) {
+        notes.push(SHELL_NOTE);
     }
+    // A nota do navegador só vale quando as ferramentas dele entram no turno (ver browser_in_use):
+    // sem servidor, a orientação induziria o modelo a procurar ferramentas que não existem.
+    if matches!(request.browser, AgentBrowser::Playwright) && super::browser_in_use(request) {
+        notes.push(PLAYWRIGHT_NOTE);
+    }
+    if notes.is_empty() {
+        return request.prompt.clone();
+    }
+    format!("{}\n\n{}", notes.join("\n\n"), request.prompt)
 }
 
 /// Com o Playwright escolhido, o servidor entra na mesma config e as ferramentas dele ficam liberadas
 /// (`playwright_*`), como o navegador embutido. Com o embutido, a config não tem `mcp`.
 pub fn config_content(permission: Permission, browser: AgentBrowser) -> String {
     let mut rules = match permission {
-        // `opencode run` não tem canal de aprovação: `Pedir permissão` cai para só leitura, como decidido no plano.
-        Permission::ReadOnly | Permission::AcceptEdits => json!({ "*": "deny", "read": "allow", "glob": "allow", "grep": "allow", "list": "allow", "execute": "allow" }),
+        // `opencode run` não tem canal de aprovação, então cada modo é uma allow-list explícita.
+        // `execute` vale nos dois primeiros para as ferramentas MCP (Playwright e lunatasks), que só existem
+        // dentro do Code Mode. O shell e a edição são ferramentas diretas: entram no `AcceptEdits` como
+        // auto-aprovação (é o papel do modo, que não tem popup para perguntar).
+        Permission::ReadOnly => json!({ "*": "deny", "read": "allow", "glob": "allow", "grep": "allow", "execute": "allow" }),
+        Permission::AcceptEdits => json!({ "*": "deny", "read": "allow", "glob": "allow", "grep": "allow", "execute": "allow", "shell": "allow", "edit": "allow", "write": "allow", "patch": "allow" }),
         Permission::FullAccess => json!({ "*": "allow" }),
     };
     // O servidor de etapas vale em todos os modos: é o que alimenta o Progresso.
@@ -97,7 +116,8 @@ fn steps_event(value: &Value) -> Vec<ProviderEvent> {
 /// Nome que a Luna mostra para cada ferramenta do OpenCode, igual ao que o Claude e o Codex usam.
 fn tool_name(tool: &str) -> String {
     match tool {
-        "bash" => "Bash".into(),
+        // A CLI 2.1.4 renomeou `bash` para `shell`; os dois nomes são aceitos por segurança.
+        "bash" | "shell" => "Bash".into(),
         "edit" | "write" | "patch" => "Editar".into(),
         "read" => "Read".into(),
         "glob" => "Glob".into(),
@@ -320,16 +340,23 @@ mod tests {
         assert_eq!(config["permission"]["*"], "deny");
         assert_eq!(config["permission"]["read"], "allow");
         assert!(config["permission"].get("edit").is_none());
+        // O somente-leitura não tem caminho de execução: nem shell nem edição.
+        assert!(config["permission"].get("shell").is_none());
+        assert!(config["permission"].get("write").is_none());
     }
 
-    /// `Pedir permissão` não tem pop-up no OpenCode, então não libera edição de arquivo.
+    /// `Pedir permissão` não tem pop-up no OpenCode, então shell e edição entram como auto-aprovação
+    /// (é o papel do modo). O `*` segue negando o que não está na lista.
     #[test]
-    fn asking_for_permission_does_not_allow_file_edits() {
+    fn accept_edits_allows_shell_and_file_edits() {
         let config: Value = serde_json::from_str(&config_content(Permission::AcceptEdits, AgentBrowser::Builtin)).unwrap();
 
-        assert!(config["permission"].get("edit").is_none());
-        assert!(config["permission"].get("write").is_none());
         assert_eq!(config["permission"]["*"], "deny");
+        for tool in ["shell", "edit", "write", "patch"] {
+            assert_eq!(config["permission"][tool], "allow", "ferramenta {tool}");
+        }
+        // Ferramentas que o modo não libera continuam negadas pelo `*`.
+        assert!(config["permission"].get("webfetch").is_none());
     }
 
     /// O execute leva as ferramentas do Playwright e das etapas; sem ele, esses dois não funcionam nos modos de leitura e edição.
@@ -351,14 +378,40 @@ mod tests {
 
     /// Com o Playwright, a mensagem sai com a orientação de como achar as ferramentas; com o embutido, sai igual.
     #[test]
-    fn prompt_names_the_playwright_namespace_only_when_chosen() {
+    fn prompt_names_the_playwright_namespace_only_when_chosen_and_in_use() {
         let mut req = request(None, None);
         assert_eq!(prompt(&req), "x");
 
         req.browser = AgentBrowser::Playwright;
+        // Fora de uso a nota fica de fora: sem servidor no turno, o modelo procuraria ferramentas que não existem.
+        assert_eq!(prompt(&req), "x");
+
+        req.browser_mode = true;
         let text = prompt(&req);
         assert!(text.contains("tools.playwright"));
         assert!(text.ends_with("\n\nx"));
+    }
+
+    /// A CLI 2.1.4 renomeou `bash` para `shell`; a UI precisa mostrar o mesmo nome dos outros provedores.
+    #[test]
+    fn shell_tool_is_shown_as_bash() {
+        assert_eq!(tool_name("shell"), "Bash");
+        assert_eq!(tool_name("bash"), "Bash");
+    }
+
+    /// A nota do shell aparece só nos modos que liberam a ferramenta; no somente-leitura ela ficaria de fora.
+    #[test]
+    fn shell_note_only_when_the_mode_allows_shell() {
+        let mut req = request(None, None); // ReadOnly, navegador embutido
+        assert_eq!(prompt(&req), "x");
+
+        req.permission = Permission::AcceptEdits;
+        let text = prompt(&req);
+        assert!(text.contains("tools.shell"));
+        assert!(text.ends_with("\n\nx"));
+
+        req.permission = Permission::FullAccess;
+        assert!(prompt(&req).contains("tools.shell"));
     }
 
     /// Captura real (OpenCode com o servidor lunatasks): cada chamada set_steps completa vira uma lista, na ordem.
