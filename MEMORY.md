@@ -288,3 +288,4 @@ Formato: `AAAA-MM-DD | o que mudou` (ordem cronológica, linhas antigas nunca s�
 2026-10-24 | Abas do navegador separadas por projeto (8 por projeto, guardadas ao trocar); velocidade e perguntas no envio comum; compactação automática em 70%; navegador das CLIs só em uso. Testes: vitest completo e cargo test --lib (465).
 2026-10-24 | Tarefas no navegador: "postar" passa a pedir permissão antes do clique (branch feat/navegador-tarefas). Página local de teste com formulário e botão Publicar, com o fluxo testado sem clique real.
 2026-10-24 | Ferramenta de envio de arquivo criada e respondendo que não é suportada até o teste de viabilidade ser aprovado.
+2026-10-24 | Spike de envio de arquivo: página de teste com input de arquivo e script CDP criados, aguardando execução manual.

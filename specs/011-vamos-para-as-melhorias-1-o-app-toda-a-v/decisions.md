@@ -81,3 +81,9 @@
 - O acesso à página e a permissão ficam em interfaces injetáveis; os testes usam implementações falsas.
 - Página de teste: fixture HTML servida em 127.0.0.1 numa porta livre, só nos testes.
 - Resultado do spike de envio de arquivo: pendente. Até lá, browser_upload responde "não suportado".
+
+## Rodada 17
+- Como você quer fazer o spike de envio de arquivo?: Eu tento automatizar via CDP, com o app rodando com depuração remota
+
+## Rodada 18
+- Quer que eu escreva agora o script CDP e a página de teste com input de arquivo, para você rodar o spike?: Sim, escreva o script e a página
