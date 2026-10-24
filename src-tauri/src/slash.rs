@@ -112,7 +112,7 @@ pub fn collect(home: &Path, cwd: &Path, provider: ProviderKind) -> Vec<SlashItem
 
 /// Ordena por nome, tira repetidos e limita a lista. Vale para as pastas da CLI e para os plugins do Claude.
 fn finish(out: &mut Vec<SlashItem>) {
-    out.sort_by(|a, b| a.name.to_lowercase().cmp(&b.name.to_lowercase()));
+    out.sort_by_key(|a| a.name.to_lowercase());
     // Mesmo nome em duas pastas (ex.: skill do usuário e do projeto): fica um item só.
     out.dedup_by(|a, b| a.name == b.name);
     out.truncate(MAX_ITEMS);

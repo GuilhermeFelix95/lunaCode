@@ -185,7 +185,7 @@ pub fn list(dir: &Path) -> Vec<Summary> {
             browser: c.browser,
         })
         .collect();
-    summaries.sort_by(|a, b| b.updated_at.cmp(&a.updated_at));
+    summaries.sort_by_key(|summary| std::cmp::Reverse(summary.updated_at));
     summaries
 }
 
