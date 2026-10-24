@@ -1,5 +1,6 @@
 use base64::{engine::general_purpose::STANDARD, Engine};
 use serde_json::{json, Value};
+use std::path::{Path, PathBuf};
 
 use super::{DiffKind, DiffLine, FileDiff, ProviderEvent, TodoItem};
 
@@ -54,11 +55,14 @@ pub fn args(request: &RunRequest) -> Vec<String> {
     if let Some(dir) = crate::plugins::guide::dir() {
         args.extend(["--add-dir".to_string(), dir.display().to_string()]);
     }
-    // Só o navegador escolhido em Configurações chega ao agente. Liberado sem perguntar, como o embutido.
-    let browser_config = match request.browser {
-        AgentBrowser::Builtin => crate::browser::mcp_config().map(|config| (config, "mcp__luna-browser")),
-        AgentBrowser::Playwright => crate::playwright::mcp_config().map(|config| (config, crate::playwright::CLAUDE_ALLOWED)),
+    // Só o navegador escolhido em Configurações chega ao agente, e só quando ele está em uso:
+    // modo navegador ligado ou o painel já aberto nesta execução. Liberado sem perguntar, como o embutido.
+    // Fora de uso, as 9 ferramentas ficavam no prefixo de todo turno sem ninguém pedir.
+    let server = match request.browser {
+        AgentBrowser::Builtin => crate::browser::mcp_config(),
+        AgentBrowser::Playwright => crate::playwright::mcp_config(),
     };
+    let browser_config = browser_server(super::browser_in_use(request), request.browser, server);
     // Um só `--mcp-config` com todas as configurações: um segundo flag poderia substituir o primeiro.
     if let Some((config, allowed)) = browser_config {
         mcp_configs.push(config.display().to_string());
@@ -83,6 +87,19 @@ pub fn args(request: &RunRequest) -> Vec<String> {
         args.push(id.clone());
     }
     args
+}
+
+/// Servidor do navegador que entra no turno, ou `None` quando ele não está em uso (nem quando o app
+/// não conseguiu gravar a configuração). É o que economiza os tokens das 9 ferramentas paradas.
+fn browser_server(in_use: bool, browser: AgentBrowser, config: Option<&Path>) -> Option<(PathBuf, &'static str)> {
+    if !in_use {
+        return None;
+    }
+    let path = config?.to_path_buf();
+    Some(match browser {
+        AgentBrowser::Builtin => (path, "mcp__luna-browser"),
+        AgentBrowser::Playwright => (path, crate::playwright::CLAUDE_ALLOWED),
+    })
 }
 
 /// Execução avulsa (segundo plano): mesmo motor Claude, mesma pasta e permissão do turno,
@@ -551,6 +568,26 @@ mod tests {
 
         assert!(args.windows(2).any(|w| w[0] == "--append-system-prompt" && w[1].starts_with(crate::providers::BROWSER_IDENTITY)));
         assert!(!args.iter().any(|a| a.contains("api.registerCommand")));
+    }
+
+    /// As ferramentas do navegador entram no turno só quando ele está em uso: fora disso, o servidor
+    /// nem aparece, e é isso que segura os tokens das 9 ferramentas paradas no prefixo.
+    #[test]
+    fn browser_server_is_loaded_only_when_the_browser_is_in_use() {
+        let config = Some(Path::new("C:\\dados\\browser-mcp.json"));
+
+        assert!(browser_server(false, AgentBrowser::Builtin, config).is_none());
+        assert!(browser_server(false, AgentBrowser::Playwright, config).is_none());
+
+        let (path, allowed) = browser_server(true, AgentBrowser::Builtin, config).unwrap();
+        assert_eq!(allowed, "mcp__luna-browser");
+        assert_eq!(path, PathBuf::from("C:\\dados\\browser-mcp.json"));
+
+        let (_, allowed) = browser_server(true, AgentBrowser::Playwright, config).unwrap();
+        assert_eq!(allowed, crate::playwright::CLAUDE_ALLOWED);
+
+        // Sem configuração gravada não há servidor para passar.
+        assert!(browser_server(true, AgentBrowser::Builtin, None).is_none());
     }
 
     const PARTIAL: &str = include_str!("../../tests/fixtures/claude_partial.jsonl");

@@ -9,6 +9,7 @@ import {
   PLAN_TARGET_KEY,
   planFromReply,
   planInstruction,
+  planIsReady,
   QUESTION_PROTOCOL,
   savePlanTarget,
   streamingPlan,
@@ -45,6 +46,17 @@ describe("modo plano", () => {
     expect(planFromReply(round, true)).toBeNull();
     expect(planFromReply({ text: "Plano pronto", questions: null }, false)).toBeNull();
     expect(planFromReply({ text: "  ", questions: null }, true)).toBeNull();
+  });
+
+  it("só fica pronto o plano que traz o bloco luna-plano ou pede a aprovação", () => {
+    const round = { text: "Contexto entendido: 30%", questions: [{ question: "Banco?", options: ["A", "B"], multiple: false }] };
+    const approval = { text: "Resumo.", questions: [{ question: "Aprovar?", options: ["Aprovar e executar", "Ainda não"], multiple: false }] };
+    const block = { text: "Resumo.\n```luna-plano\n## Passos\n1. Faz\n```", questions: null };
+
+    expect(planIsReady(round)).toBe(false);
+    expect(planIsReady({ text: "Resposta solta sem plano", questions: null })).toBe(false);
+    expect(planIsReady(approval)).toBe(true);
+    expect(planIsReady(block)).toBe(true);
   });
 
   it("lê a % marcada pelo agente, limitada a 100", () => {

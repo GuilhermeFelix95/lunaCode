@@ -1,11 +1,14 @@
 //! Navegador integrado: uma webview filha dentro da janela principal, na aba ao lado do Terminal.
 //! O agente usa a mesma webview por ferramentas MCP: o próprio executável roda em modo `browser-mcp`
 //! (ver `mcp_stdio`) e fala com um servidor HTTP local, que só aceita o token gerado no início do app.
+use std::cell::RefCell;
 use std::collections::hash_map::RandomState;
+use std::collections::HashMap;
 use std::hash::{BuildHasher, Hasher};
 use std::io::{BufRead, BufReader, Read, Write};
 use std::net::{TcpListener, TcpStream};
 use std::path::{Path, PathBuf};
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::mpsc;
 use std::sync::{Mutex, OnceLock};
 use std::time::{Duration, Instant};
@@ -18,6 +21,7 @@ use tauri::{AppHandle, Emitter, LogicalPosition, LogicalSize, Manager, Position,
 
 use crate::browser_actions::{self, page_call};
 use crate::browser_import;
+use crate::browser_tabs::ProjectTabs;
 use crate::commands::app_data_dir;
 use crate::logfile;
 use crate::permission_prompt;
@@ -57,62 +61,77 @@ static APP: OnceLock<AppHandle> = OnceLock::new();
 static TOKEN: OnceLock<String> = OnceLock::new();
 static CONFIG: OnceLock<PathBuf> = OnceLock::new();
 /// Abas abertas. Cada aba é uma webview com rótulo `LABEL-<id>`; a ativa é a que o painel mostra e o agente usa.
-static TABS: Mutex<TabSet> = Mutex::new(TabSet::new());
+static TABS: Mutex<ProjectTabs> = Mutex::new(ProjectTabs::new());
 /// Área onde o painel mostra as abas pela última vez: a aba que um link abre nasce nela, sem salto.
 static LAST_BOUNDS: Mutex<Option<Bounds>> = Mutex::new(None);
+/// Projeto de cada execução do agente: as ferramentas do navegador agem nas abas desse projeto.
+static RUN_PROJECTS: Mutex<Option<HashMap<String, String>>> = Mutex::new(None);
 
-/// Limite de abas: cada uma é um processo do WebView2, então é preciso pôr um teto.
-pub const MAX_TABS: usize = 8;
-
-/// Ids das abas abertas, na ordem em que foram abertas. `economy` guarda as abas em que o usuário
-/// pediu para economizar memória: só essas são suspensas quando ficam escondidas.
-#[derive(Default)]
-struct TabSet {
-    next: u32,
-    ids: Vec<u32>,
-    active: Option<u32>,
-    economy: Vec<u32>,
+thread_local! {
+    /// Projeto da chamada de ferramenta em curso nesta thread. Vazio, vale o projeto que o painel mostra.
+    static CALL_PROJECT: RefCell<Option<String>> = const { RefCell::new(None) };
 }
 
-impl TabSet {
-    const fn new() -> Self {
-        Self { next: 0, ids: Vec::new(), active: None, economy: Vec::new() }
-    }
+/// true desde que uma aba foi criada nesta execução do app. É o sinal de que a pessoa (ou o agente)
+/// está usando o navegador, então as ferramentas dele entram nos turnos seguintes; antes disso, o MCP
+/// fica desligado para não carregar 9 ferramentas no prefixo de todo turno à toa (ver `providers::browser_in_use`).
+static USED: AtomicBool = AtomicBool::new(false);
 
-    fn is_economy(&self, id: u32) -> bool {
-        self.economy.contains(&id)
-    }
+/// Marca o navegador como em uso. Chamado quando uma aba nasce, seja pelo painel, pelo agente ou por um link.
+pub fn mark_used() {
+    USED.store(true, Ordering::Relaxed);
+}
 
-    /// Liga ou desliga a economia de memória de uma aba aberta. Devolve false se ela não existe.
-    fn set_economy(&mut self, id: u32, on: bool) -> bool {
-        if !self.ids.contains(&id) {
-            return false;
-        }
-        self.economy.retain(|other| *other != id);
-        if on {
-            self.economy.push(id);
-        }
-        true
-    }
+/// true quando o navegador já foi aberto nesta execução do app.
+pub fn is_used() -> bool {
+    USED.load(Ordering::Relaxed)
+}
 
-    /// Reserva o id de uma aba nova, ou recusa quando o limite já foi atingido.
-    fn reserve(&mut self) -> Result<u32, String> {
-        if self.ids.len() >= MAX_TABS {
-            return Err(format!("o navegador aceita até {MAX_TABS} abas; feche uma para abrir outra"));
-        }
-        self.next += 1;
-        self.ids.push(self.next);
-        Ok(self.next)
+/// Liga a execução do agente ao projeto da conversa. Chamado quando o turno começa.
+pub fn bind_run(run_id: &str, project: &str) {
+    if let Ok(mut runs) = RUN_PROJECTS.lock() {
+        runs.get_or_insert_with(HashMap::new).insert(run_id.to_string(), project.to_string());
     }
+}
 
-    /// Tira a aba da lista. Se ela era a ativa, a última aberta passa a ser a ativa, e a devolve.
-    fn forget(&mut self, id: u32) -> Option<u32> {
-        self.ids.retain(|other| *other != id);
-        self.economy.retain(|other| *other != id);
-        if self.active == Some(id) {
-            self.active = self.ids.last().copied();
+/// Desfaz `bind_run` quando o turno termina.
+pub fn unbind_run(run_id: &str) {
+    if let Ok(mut runs) = RUN_PROJECTS.lock() {
+        if let Some(runs) = runs.as_mut() {
+            runs.remove(run_id);
         }
-        self.active
+    }
+}
+
+fn project_of_run(run_id: &str) -> Option<String> {
+    RUN_PROJECTS.lock().ok()?.as_ref()?.get(run_id).cloned()
+}
+
+/// Projeto em que a chamada atua: o da execução do agente, ou o que o painel mostra.
+fn target_project() -> Result<String, String> {
+    if let Some(project) = CALL_PROJECT.with(|call| call.borrow().clone()) {
+        return Ok(project);
+    }
+    TABS.lock()
+        .map_err(|_| "estado do navegador travado".to_string())?
+        .current()
+        .map(str::to_string)
+        .ok_or_else(|| "o navegador ainda não tem projeto: abra uma pasta de projeto para usar o navegador".to_string())
+}
+
+/// Marca, durante uma chamada do agente, o projeto da execução. Ao sair, a marca some.
+struct CallScope;
+
+impl CallScope {
+    fn enter(project: Option<String>) -> Self {
+        CALL_PROJECT.with(|call| *call.borrow_mut() = project);
+        CallScope
+    }
+}
+
+impl Drop for CallScope {
+    fn drop(&mut self) {
+        CALL_PROJECT.with(|call| *call.borrow_mut() = None);
     }
 }
 
@@ -169,12 +188,13 @@ fn app() -> Result<&'static AppHandle, String> {
     APP.get().ok_or_else(|| "o app ainda não terminou de iniciar".to_string())
 }
 
-/// A aba ativa. Sem aba aberta, o agente e o painel recebem a mesma mensagem.
+/// A aba ativa do projeto da chamada. Sem aba aberta, o agente e o painel recebem a mesma mensagem.
 fn webview() -> Result<Webview, String> {
+    let project = target_project()?;
     let id = TABS
         .lock()
         .map_err(|_| "estado do navegador travado".to_string())?
-        .active
+        .active_in(&project)
         .ok_or_else(|| "o navegador ainda não foi aberto: navegue com browser_navigate ou abra a aba Navegador".to_string())?;
     app()?
         .get_webview(&tab_label(id))
@@ -216,9 +236,12 @@ fn shortcut_script() -> String {
 
 /// Cria uma aba com a página e a torna a ativa. Só a ativa fica visível.
 fn create_tab(url: Url, bounds: Bounds, visible: bool) -> Result<u32, String> {
+    // Aba nova = navegador em uso: a partir daqui as ferramentas dele entram no turno (ver `is_used`).
+    mark_used();
     let app = app()?;
     let window = app.get_window(MAIN_WINDOW).ok_or("janela principal não encontrada")?;
-    let id = TABS.lock().map_err(|_| "estado do navegador travado".to_string())?.reserve()?;
+    let project = target_project()?;
+    let id = TABS.lock().map_err(|_| "estado do navegador travado".to_string())?.reserve(&project)?;
     let page_app = app.clone();
     let shortcut_app = app.clone();
     let link_app = app.clone();
@@ -336,21 +359,28 @@ fn enable_password_autosave(_view: &Webview) -> Result<(), String> {
     Ok(())
 }
 
-/// Torna `id` a aba ativa: esconde as outras e acorda a escolhida. Abas em modo economia são suspensas ao esconder;
-/// as demais ficam rodando, para a página não recarregar nem perder o estado ao voltar a elas.
+/// Torna `id` a aba ativa do próprio projeto e atualiza o que aparece no painel.
 fn show_only(app: &AppHandle, id: u32) -> Result<(), String> {
-    let others: Vec<(u32, bool)> = {
-        let mut tabs = TABS.lock().map_err(|_| "estado do navegador travado".to_string())?;
-        if !tabs.ids.contains(&id) {
-            return Err("essa aba não está aberta".to_string());
-        }
-        tabs.active = Some(id);
-        tabs.ids
+    let known = TABS.lock().map_err(|_| "estado do navegador travado".to_string())?.set_active(id);
+    if !known {
+        return Err("essa aba não está aberta".to_string());
+    }
+    apply_visibility(app)
+}
+
+/// Só a aba ativa do projeto atual fica visível. As outras são escondidas; as de modo economia são suspensas.
+/// As demais ficam rodando, para a página não recarregar nem perder o estado ao voltar a elas.
+fn apply_visibility(app: &AppHandle) -> Result<(), String> {
+    let (visible, others): (Option<u32>, Vec<(u32, bool)>) = {
+        let tabs = TABS.lock().map_err(|_| "estado do navegador travado".to_string())?;
+        let visible = tabs.active_of_current();
+        let others = tabs
+            .all()
             .iter()
-            .copied()
-            .filter(|other| *other != id)
-            .map(|other| (other, tabs.is_economy(other)))
-            .collect()
+            .filter(|tab| Some(tab.id) != visible)
+            .map(|tab| (tab.id, tab.economize))
+            .collect();
+        (visible, others)
     };
     for (other, economy) in others {
         if let Some(view) = app.get_webview(&tab_label(other)) {
@@ -360,18 +390,18 @@ fn show_only(app: &AppHandle, id: u32) -> Result<(), String> {
             }
         }
     }
-    if let Some(view) = app.get_webview(&tab_label(id)) {
-        set_sleeping(&view, id, false);
+    if let Some(id) = visible {
+        if let Some(view) = app.get_webview(&tab_label(id)) {
+            set_sleeping(&view, id, false);
+            view.show().map_err(|e| e.to_string())?;
+        }
     }
     Ok(())
 }
 
-/// Mostra uma aba e esconde as outras. Usado ao trocar de aba no painel.
+/// Mostra uma aba do projeto atual e esconde as outras. Usado ao trocar de aba no painel.
 fn activate_tab(id: u32) -> Result<(), String> {
-    let app = app()?;
-    show_only(app, id)?;
-    let view = app.get_webview(&tab_label(id)).ok_or("a aba não existe mais")?;
-    view.show().map_err(|e| e.to_string())
+    show_only(app()?, id)
 }
 
 /// Suspende (`sleeping`) ou acorda uma aba. Falha só vai para o log: a aba segue, do jeito que estava.
@@ -476,26 +506,44 @@ pub struct BrowserState {
     pub adblock: bool,
 }
 
+/// Abas do projeto que o painel mostra, e a ativa dele. Sem projeto escolhido, a lista vem vazia.
 #[tauri::command]
 pub fn browser_state() -> Result<BrowserState, String> {
-    let (ids, active, economy) = {
+    let (listed, active) = {
         let tabs = TABS.lock().map_err(|_| "estado do navegador travado".to_string())?;
-        (tabs.ids.clone(), tabs.active, tabs.economy.clone())
+        let Some(project) = tabs.current() else {
+            return Ok(BrowserState { tabs: Vec::new(), active: None, adblock: crate::adblock::is_enabled() });
+        };
+        let listed: Vec<(u32, bool)> = tabs.tabs_in(project).map(|tab| (tab.id, tab.economize)).collect();
+        (listed, tabs.active_of_current())
     };
     let app = app()?;
-    let tabs = ids
+    let tabs = listed
         .into_iter()
-        .map(|id| TabInfo {
+        .map(|(id, economize)| TabInfo {
             id,
             url: app
                 .get_webview(&tab_label(id))
                 .and_then(|view| view.url().ok())
                 .map(|url| url.to_string())
                 .unwrap_or_default(),
-            economize: economy.contains(&id),
+            economize,
         })
         .collect();
     Ok(BrowserState { tabs, active, adblock: crate::adblock::is_enabled() })
+}
+
+/// Troca o projeto que o painel mostra: as abas dele aparecem e as dos outros são escondidas.
+/// Quem chama é o painel, quando a conversa aberta muda de pasta.
+#[tauri::command]
+pub fn browser_set_project(project: String) -> Result<(), String> {
+    if project.trim().is_empty() {
+        return Err("o projeto do navegador não pode ser vazio".into());
+    }
+    // Quem chama é o painel, quando ele abre: painel aberto = pessoa usando o navegador.
+    mark_used();
+    TABS.lock().map_err(|_| "estado do navegador travado".to_string())?.set_current(&project);
+    apply_visibility(app()?)
 }
 
 /// Liga ou pausa o bloqueador de anúncios. Vale para todas as abas, na hora.
@@ -640,11 +688,9 @@ pub async fn browser_close_tab(tab_id: u32) -> Result<Option<u32>, String> {
         if let Some(view) = app()?.get_webview(&tab_label(tab_id)) {
             view.close().map_err(|e| e.to_string())?;
         }
-        let next = TABS.lock().map_err(|_| "estado do navegador travado".to_string())?.forget(tab_id);
-        if let Some(id) = next {
-            activate_tab(id)?;
-        }
-        Ok(next)
+        TABS.lock().map_err(|_| "estado do navegador travado".to_string())?.forget(tab_id);
+        apply_visibility(app()?)?;
+        Ok(TABS.lock().map_err(|_| "estado do navegador travado".to_string())?.active_of_current())
     })
     .await
     .map_err(|e| e.to_string())?
@@ -819,6 +865,8 @@ pub fn browser_set_search_engine(engine: String) -> Result<(), String> {
 
 /// Executa uma ferramenta pelo nome e devolve o texto para o agente. `run_id` é a conversa que pediu.
 fn dispatch_tool(name: &str, args: &Value, run_id: &str) -> Result<String, String> {
+    // A chamada age no projeto da conversa que a pediu, mesmo que o painel mostre outro.
+    let _scope = CallScope::enter(project_of_run(run_id));
     let text = |key: &str| args[key].as_str().unwrap_or("").to_string();
     match name {
         "browser_navigate" => tool_navigate(&text("url")),
@@ -1193,59 +1241,21 @@ mod tab_tests {
     use super::*;
 
     #[test]
-    fn reserves_up_to_the_limit_then_refuses() {
-        let mut tabs = TabSet::new();
-        for expected in 1..=MAX_TABS as u32 {
-            assert_eq!(tabs.reserve(), Ok(expected));
+    fn a_run_uses_the_project_it_was_bound_to_until_it_ends() {
+        bind_run("run-teste-projeto", "/projeto-a");
+        assert_eq!(project_of_run("run-teste-projeto").as_deref(), Some("/projeto-a"));
+
+        unbind_run("run-teste-projeto");
+        assert_eq!(project_of_run("run-teste-projeto"), None);
+    }
+
+    #[test]
+    fn a_call_scope_is_cleared_when_it_ends() {
+        {
+            let _scope = CallScope::enter(Some("/projeto-b".into()));
+            assert_eq!(target_project().as_deref(), Ok("/projeto-b"));
         }
-
-        let err = tabs.reserve().unwrap_err();
-        assert!(err.contains(&format!("{MAX_TABS} abas")), "{err}");
-    }
-
-    #[test]
-    fn closing_the_active_tab_hands_over_to_the_last_one() {
-        let mut tabs = TabSet::new();
-        let first = tabs.reserve().unwrap();
-        let second = tabs.reserve().unwrap();
-        let third = tabs.reserve().unwrap();
-        tabs.active = Some(first);
-
-        assert_eq!(tabs.forget(first), Some(third));
-        assert_eq!(tabs.ids, vec![second, third]);
-    }
-
-    #[test]
-    fn closing_an_inactive_tab_keeps_the_active_one() {
-        let mut tabs = TabSet::new();
-        let first = tabs.reserve().unwrap();
-        let second = tabs.reserve().unwrap();
-        tabs.active = Some(second);
-
-        assert_eq!(tabs.forget(first), Some(second));
-    }
-
-    #[test]
-    fn closing_the_last_tab_leaves_no_active_tab() {
-        let mut tabs = TabSet::new();
-        let only = tabs.reserve().unwrap();
-        tabs.active = Some(only);
-
-        assert_eq!(tabs.forget(only), None);
-        assert!(tabs.ids.is_empty());
-    }
-
-    #[test]
-    fn economy_is_set_per_tab_and_leaves_with_the_tab() {
-        let mut set = TabSet::new();
-        let first = set.reserve().unwrap();
-        let second = set.reserve().unwrap();
-        assert!(set.set_economy(first, true));
-        assert!(set.is_economy(first));
-        assert!(!set.is_economy(second));
-        set.forget(first);
-        assert!(!set.is_economy(first));
-        assert!(!set.set_economy(first, true), "aba fechada não recebe economia");
+        assert!(CALL_PROJECT.with(|call| call.borrow().is_none()));
     }
 
     #[test]

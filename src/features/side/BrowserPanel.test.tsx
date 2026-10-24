@@ -12,6 +12,7 @@ vi.mock("../../api", () => ({
   browserCloseTab: vi.fn(async () => null),
   browserSetEconomy: vi.fn(async () => {}),
   browserSetAdblock: vi.fn(async () => {}),
+  browserSetProject: vi.fn(async () => {}),
   browserTranslate: vi.fn(async (on: boolean) => (on ? "https://translate.google.com/translate?sl=auto&tl=pt&u=https%3A%2F%2Fexample.com%2F" : "https://example.com/")),
   browserState: vi.fn(async () => ({ tabs: [], active: null })),
   browserNavigate: vi.fn(async (url: string) => `https://${url}/`),
@@ -703,5 +704,50 @@ describe("BrowserPanel: painel inativo não esconde a página do painel ativo", 
     );
 
     await waitFor(() => expect(vi.mocked(api.browserShow).mock.calls.at(-1)).toEqual([true]));
+  });
+});
+
+describe("BrowserPanel: abas por projeto", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    vi.mocked(api.browserBookmarks).mockResolvedValue([]);
+    vi.stubGlobal(
+      "ResizeObserver",
+      class {
+        observe() {}
+        disconnect() {}
+      },
+    );
+    vi.spyOn(HTMLElement.prototype, "getBoundingClientRect").mockReturnValue(AREA as DOMRect);
+  });
+
+  it("com o painel à mostra, avisa o projeto da conversa e lista só as abas dele", async () => {
+    vi.mocked(api.browserState).mockResolvedValue({ tabs: [{ id: 1, url: "https://a.com/" }], active: 1, adblock: true });
+
+    render(<BrowserPanel active project="/projeto-a" />);
+
+    expect(await screen.findByText("a.com")).toBeTruthy();
+    expect(api.browserSetProject).toHaveBeenCalledWith("/projeto-a");
+  });
+
+  it("trocar de projeto mostra as abas do outro e não mantém as de antes", async () => {
+    vi.mocked(api.browserState)
+      .mockResolvedValueOnce({ tabs: [{ id: 1, url: "https://a.com/" }], active: 1, adblock: true })
+      .mockResolvedValueOnce({ tabs: [{ id: 2, url: "https://b.com/" }], active: 2, adblock: true });
+    const { rerender } = render(<BrowserPanel active project="/projeto-a" />);
+    await screen.findByText("a.com");
+
+    rerender(<BrowserPanel active project="/projeto-b" />);
+
+    expect(await screen.findByText("b.com")).toBeTruthy();
+    expect(screen.queryByText("a.com")).toBeNull();
+    expect(api.browserSetProject).toHaveBeenLastCalledWith("/projeto-b");
+  });
+
+  it("um painel inativo não troca o projeto que o navegador mostra", async () => {
+    render(<BrowserPanel active={false} project="/projeto-a" />);
+
+    await waitFor(() => expect(api.browserBookmarks).toHaveBeenCalled());
+    expect(api.browserSetProject).not.toHaveBeenCalled();
   });
 });

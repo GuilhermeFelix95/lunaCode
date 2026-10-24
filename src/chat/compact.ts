@@ -16,7 +16,9 @@ export const COMPACT_PROMPT = [
 ].join("\n");
 
 /// Limite de uso do contexto a partir do qual a conversa é compactada sozinha.
-export const AUTO_COMPACT_RATIO = 0.9;
+/// 0.7 em vez de 0.9: a cada turno o pedido é proporcional ao tamanho do contexto, então manter a
+/// conversa abaixo de 70% da janela deixa os turnos bem mais baratos do que rodar até 90%.
+export const AUTO_COMPACT_RATIO = 0.7;
 
 /// Início da sessão nova: o resumo que a conversa anterior deixou.
 export function compactPreamble(summary: string): string {

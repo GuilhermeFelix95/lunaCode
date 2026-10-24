@@ -7,6 +7,7 @@ pub mod background_tasks;
 pub mod browser;
 pub mod browser_actions;
 pub mod browser_bookmarks;
+pub mod browser_tabs;
 pub mod browser_history;
 pub mod browser_import;
 pub mod changes;
@@ -71,6 +72,7 @@ fn apply_window_icon(app: &tauri::App) -> Result<(), String> {
 pub fn run() {
     tauri::Builder::default()
         .manage(commands::ActiveRuns::default())
+        .manage(commands::SpecMarks::default())
         .manage(background_tasks::BackgroundTasks::default())
         .manage(terminal::Terminals::default())
         .plugin(tauri_plugin_dialog::init())
@@ -177,6 +179,7 @@ pub fn run() {
             browser::browser_new_tab,
             browser::browser_switch_tab,
             browser::browser_state,
+            browser::browser_set_project,
             browser_bookmarks::browser_bookmarks,
             browser_bookmarks::browser_bookmark_add,
             browser_bookmarks::browser_bookmark_remove,

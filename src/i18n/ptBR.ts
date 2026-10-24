@@ -266,7 +266,7 @@ export const ptBR = {
   "sound.lua": "Lua",
   "sound.miau": "Miau",
   "sound.pop": "Pop",
-  "conversation.autoCompact": "Compactar sozinha quando o contexto passar de 90%",
+  "conversation.autoCompact": "Compactar sozinha quando o contexto passar de 70%",
   "conversation.longCache": "Cache longo (1 h) para chaves de API da Anthropic",
   "conversation.longCacheHint":
     "O cache de 1 h mantém o contexto por mais tempo entre as mensagens: escrever no cache custa mais, reler custa menos. Só vale para chave da Anthropic.",
@@ -607,7 +607,6 @@ export const ptBR = {
   "composer.cloneAria": "Clonar um site para o projeto (beta)",
   "composer.speed": "{speed} tokens/s",
   "composer.speedTitle": "Velocidade medida: tokens de saída do modelo ÷ tempo desde o primeiro texto",
-  "composer.speedAria": "Mostrar velocidade da resposta",
   "goal.shown": "Meta: rodada {round} de {max}",
   "goal.gaveUp": "A meta não foi confirmada em {max} rodadas. Parei aqui.",
   "composer.stop": "Parar",

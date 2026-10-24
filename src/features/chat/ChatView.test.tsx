@@ -47,6 +47,7 @@ vi.mock("../../api", () => ({
   browserCloseTab: vi.fn(async () => null),
   browserState: vi.fn(async () => ({ tabs: [], active: null })),
   browserBookmarks: vi.fn(async () => []),
+  browserSetProject: vi.fn(async () => {}),
   browserBookmarkAdd: vi.fn(async () => []),
   browserBookmarkRemove: vi.fn(async () => []),
   browserSetBounds: vi.fn(async () => {}),
@@ -201,6 +202,37 @@ describe("ChatView: continuidade e envio", () => {
     expect(screen.getByText(/Resumo: criar a tela/).textContent).not.toContain("src/App.tsx");
   });
 
+  it("no modo plano, uma rodada de perguntas não mostra o botão de aprovação", async () => {
+    render(<ChatView onPersist={() => {}} />);
+    await waitFor(() => expect((screen.getByLabelText("Mensagem") as HTMLTextAreaElement).disabled).toBe(false));
+    fireEvent.click(screen.getByLabelText("Modo de planejamento"));
+
+    await send("quero um app de tarefas");
+    emit({
+      kind: "textDelta",
+      text: 'Contexto entendido: 30%\n```luna-perguntas\n[{"pergunta": "Qual banco?", "opcoes": ["Postgres", "SQLite"]}]\n```',
+    });
+    emit({ kind: "done", ok: true });
+
+    await screen.findByRole("region", { name: "Perguntas do agente" });
+    expect(screen.queryByRole("region", { name: "Aprovação do plano" })).toBeNull();
+  });
+
+  it("no modo plano, o botão de aprovação aparece quando a resposta traz o plano pronto", async () => {
+    render(<ChatView onPersist={() => {}} />);
+    await waitFor(() => expect((screen.getByLabelText("Mensagem") as HTMLTextAreaElement).disabled).toBe(false));
+    fireEvent.click(screen.getByLabelText("Modo de planejamento"));
+
+    await send("quero um app de tarefas");
+    emit({
+      kind: "textDelta",
+      text: "Resumo: criar a tela de tarefas.\n```luna-plano\n## Arquivos a alterar\n- src/App.tsx: monta a tela\n```",
+    });
+    emit({ kind: "done", ok: true });
+
+    expect(await screen.findByRole("region", { name: "Aprovação do plano" })).toBeTruthy();
+  });
+
   it("no modo plano, responder 'Aprovar e executar' pelo seletor desliga o plano e executa", async () => {
     render(<ChatView onPersist={() => {}} />);
     await waitFor(() => expect((screen.getByLabelText("Mensagem") as HTMLTextAreaElement).disabled).toBe(false));
@@ -224,18 +256,20 @@ describe("ChatView: continuidade e envio", () => {
     expect(screen.getByLabelText("Modo de planejamento").getAttribute("aria-pressed")).toBe("false");
   });
 
-  it("fora do modo Conversar, perguntas não viram seletor", async () => {
+  it("envio comum ensina o bloco de perguntas e mostra as perguntas no seletor", async () => {
     render(<ChatView onPersist={() => {}} />);
     await waitFor(() => expect((screen.getByLabelText("Mensagem") as HTMLTextAreaElement).disabled).toBe(false));
     await send("crie uma tela de login");
+    expect(vi.mocked(api.sendPrompt).mock.calls[0][0].prompt).toContain("luna-perguntas");
     emit({
       kind: "textDelta",
       text: 'Antes de começar:\n```luna-perguntas\n[{"pergunta": "Qual banco?", "opcoes": ["Postgres", "SQLite"]}]\n```',
     });
     emit({ kind: "done", ok: true });
 
-    await waitFor(() => expect(screen.getByLabelText("Enviar")).toBeTruthy());
-    expect(screen.queryByLabelText("Perguntas do agente")).toBeNull();
+    const picker = within(await screen.findByRole("region", { name: "Perguntas do agente" }));
+    expect(picker.getByRole("button", { name: "Postgres" })).toBeTruthy();
+    expect(screen.queryByText(/luna-perguntas/)).toBeNull();
   });
 
   it("sugestões da tela vazia preenchem a caixa sem enviar", async () => {
@@ -309,8 +343,7 @@ describe("ChatView: continuidade e envio", () => {
     expect(second.permission).toBe("fullAccess");
   });
 
-  it("mostra a velocidade medida pelos tokens de saída e a mantém depois do fim do turno", async () => {
-    localStorage.setItem("luna.chat.showSpeed", "1");
+  it("mostra a velocidade medida pelos tokens de saída, sem botão, e a mantém depois do fim do turno", async () => {
     const now = vi.spyOn(Date, "now").mockReturnValue(1_000);
     try {
       render(<ChatView onPersist={() => {}} />);
@@ -329,7 +362,24 @@ describe("ChatView: continuidade e envio", () => {
       await waitFor(() => expect(screen.getByText("25 tokens/s")).toBeTruthy());
     } finally {
       now.mockRestore();
-      localStorage.removeItem("luna.chat.showSpeed");
+    }
+  });
+
+  it("sem tokens medidos, a resposta não mostra velocidade nenhuma, nem zero", async () => {
+    const now = vi.spyOn(Date, "now").mockReturnValue(1_000);
+    try {
+      render(<ChatView onPersist={() => {}} />);
+      await waitFor(() => expect((screen.getByLabelText("Mensagem") as HTMLTextAreaElement).disabled).toBe(false));
+
+      await send("sem medição");
+      now.mockReturnValue(2_000);
+      emit({ kind: "textDelta", text: "resposta" });
+      now.mockReturnValue(3_000);
+
+      expect(screen.queryByText(/tokens\/s/)).toBeNull();
+      expect(screen.queryByLabelText("Mostrar velocidade da resposta")).toBeNull();
+    } finally {
+      now.mockRestore();
     }
   });
 

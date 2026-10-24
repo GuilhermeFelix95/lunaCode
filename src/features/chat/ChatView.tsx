@@ -51,9 +51,9 @@ import { profileModelOptions } from "../../chat/models";
 import { contextFor, withContext } from "../../chat/handoff";
 import { autoCompactEnabled, compactPreamble, COMPACT_PROMPT, needsCompaction, sessionsFrom } from "../../chat/compact";
 import { goalInstruction, goalShouldContinue, isGoalDone, MAX_GOAL_ROUNDS, stripGoalMarker } from "../../chat/goal";
-import { readShowSpeed, saveShowSpeed, tokensPerSecond } from "../../chat/speed";
-import { APPROVE_OPTION, approvalPrompt, contextUnderstood, extractPlan, loadPlanTarget, planFromReply, QUESTION_PROTOCOL, streamingPlan, withPlanInstruction } from "../../chat/planning";
-import { extractQuestions, type Question, type ReplyParts } from "../../chat/questions";
+import { tokensPerSecond } from "../../chat/speed";
+import { APPROVE_OPTION, approvalPrompt, contextUnderstood, extractPlan, loadPlanTarget, planFromReply, planIsReady, QUESTION_PROTOCOL, streamingPlan, withPlanInstruction } from "../../chat/planning";
+import { extractQuestions, turnAsksQuestions, type Question, type ReplyParts } from "../../chat/questions";
 import { applyEvent } from "../../chat/reducer";
 import { summarize, type CacheUsage, type TurnRecord } from "../../chat/promptCache";
 import { longCacheEnabled } from "../../chat/cacheSettings";
@@ -214,6 +214,8 @@ export function ChatView({
   const [planning, setPlanning] = useState(initial?.planning ?? false);
   // Último plano da conversa: a resposta do modo plano (ou da spec) fica no painel.
   const [plan, setPlan] = useState<string | undefined>(initial?.plan);
+  // O último turno no modo plano trouxe o plano pronto, e não só uma rodada de perguntas: só então aparece o card de aprovação.
+  const [planReady, setPlanReady] = useState(Boolean(initial?.plan));
   const planRef = useRef(plan);
   // Pasta da spec desta conversa (specs/NNN-slug), criada na primeira aprovação do plano.
   const specDirRef = useRef<string | undefined>(initial?.specDir);
@@ -498,8 +500,6 @@ export function ChatView({
   const [speed, setSpeed] = useState<number | null>(null);
   const outputTokens = useRef(0);
   const firstTextAt = useRef<number | null>(null);
-  const [showSpeed, setShowSpeed] = useState(readShowSpeed);
-  useEffect(() => saveShowSpeed(showSpeed), [showSpeed]);
   // Velocidade medida: tokens de saída de cada chamada ao modelo, somados. O valor final fica no composer até o próximo turno.
   useEffect(() => {
     if (!running) return;
@@ -853,6 +853,7 @@ export function ChatView({
             commit(applyEvent(messagesRef.current, { kind: "textDelta", text: planParts.summary }, turnProvider.current, turnLabel.current));
           }
         }
+        if (turnPlanning.current) setPlanReady(planIsReady(parsed));
         const draft = planParts?.plan ?? planFromReply(parsed, turnPlanning.current);
         if (draft) {
           planRef.current = draft;
@@ -1040,7 +1041,7 @@ ${cliPrompt}`;
     setUnderstood(null);
     turnPlanning.current = plan;
     // Perguntas: o modo diz se quer perguntas. "ask" continua valendo para o plugin antigo, que não declarava o campo.
-    turnAsk.current = plan || (mode?.questions ?? mode?.id === "ask");
+    turnAsk.current = turnAsksQuestions(plan, mode);
     turnUsage.current = null;
     turnMeta.current = { provider: route.provider, model: route.model, systemKey: [route.provider, route.profileId ?? "", route.model, route.effort].join("|") };
     turnProvider.current = route.provider;
@@ -1080,10 +1081,9 @@ ${cliPrompt}`;
         provider: route.provider,
         profile: route.profileId ?? undefined,
         images,
-        prompt: withContext(
-          preamble,
-          plan ? withPlanInstruction(cliPrompt, loadPlanTarget()) : mode ? mode.instruction + "\n\n" + QUESTION_PROTOCOL + "\n\n" + cliPrompt : cliPrompt,
-        ),
+        // Sem modo nem plano, o protocolo vem antes do contexto, para não cair entre o rótulo e a mensagem.
+        prompt: (plan || mode ? "" : QUESTION_PROTOCOL + "\n\n") +
+          withContext(preamble, plan ? withPlanInstruction(cliPrompt, loadPlanTarget()) : mode ? mode.instruction + "\n\n" + QUESTION_PROTOCOL + "\n\n" + cliPrompt : cliPrompt),
         sessionId,
         cwd,
         permission: plan || mode ? "readOnly" : permission,
@@ -1562,7 +1562,7 @@ ${outgoing}`
           </button>
         )}
 
-        {planning && lastIsReply && !running && (
+        {planning && planReady && lastIsReply && !running && (
           <div className="plan-approval" role="region" aria-label={t("chat.planApprovalAria")}>
             <p className="plan-approval__context">
               {understood === null
@@ -1659,8 +1659,6 @@ ${outgoing}`
         onStop={stopRun}
         running={running}
         speed={speed}
-        showSpeed={showSpeed}
-        onToggleSpeed={() => setShowSpeed((on) => !on)}
         blocked={blocked}
         agent={agentK}
         agents={options}
@@ -1749,6 +1747,7 @@ ${outgoing}`
         browser={
           <BrowserPanel
             active={visible && sideOpen && sideTab === "browser"}
+            project={cwd || undefined}
             openRequest={browserRequest}
             toolbarStart={
               browserMode ? (
