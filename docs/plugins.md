@@ -46,7 +46,7 @@ O app mostra um cartão com o botão **Instalar**, que abre a tela de permissõe
 | `name` | Obrigatório, não pode ser vazio. |
 | `version` | Texto livre; recomenda-se semver (`0.1.0`). |
 | `entry` | Caminho relativo dentro da pasta. Não pode sair dela (`../` é recusado). Use `index.js`. |
-| `permissions` | Lista com `commands`, `hooks`, `modes` e/ou `cache`. Qualquer outro valor recusa o plugin. |
+| `permissions` | Lista com `commands`, `hooks`, `modes`, `cache`, `ui`, `theme`, `autofix` e/ou `skills`. Qualquer outro valor recusa o plugin. |
 
 Um plugin com manifesto inválido aparece na lista de avisos e não impede os outros de carregar. O arquivo de entrada precisa caber em 512 KB.
 
@@ -193,6 +193,21 @@ api.theme.register({
   sounds: { reply: "asset(assets/ding.ogg)" },
 });
 ```
+
+### `api.skills.list()`: permissão `skills`
+
+Devolve uma lista com `id`, `name` e `description` de cada skill instalada, em ordem de id. O conteúdo do `SKILL.md` **não** vem na lista: o plugin só enxerga o que precisa para escolher.
+
+```js
+export function activate(api) {
+  api.onBeforeSend(async (prompt) => {
+    const skills = await api.skills.list();
+    // escolha as skills que batem com o pedido e devolva o pedido com uma dica
+  });
+}
+```
+
+Sem a permissão `skills`, acessar `api.skills` recusa o plugin. A dica que o plugin acrescenta é só uma sugestão: o CLI continua carregando a lista de skills instaladas.
 
 ## Limites
 
