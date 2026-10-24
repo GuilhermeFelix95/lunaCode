@@ -120,13 +120,16 @@ flowchart LR
 
 ## Política de assinatura de código
 
+Code signing policy: os instaladores do Windows são assinados gratuitamente pela [SignPath.io](https://about.signpath.io/), com certificado da [SignPath Foundation](https://signpath.org/).
+
 O projeto é distribuído sob a licença Apache 2.0 (ver `LICENSE`). A inscrição para assinatura gratuita de código aberto na SignPath Foundation está em andamento. Depois de aprovada, valem as regras abaixo:
 
 - Só são assinados os instaladores gerados a partir deste repositório, pelo processo de release.
 - O certificado é emitido para a SignPath Foundation, e o editor exibido no Windows será esse.
-- Cada publicação é aprovada manualmente antes da assinatura.
-- Os membros da equipe com acesso à assinatura usam autenticação em dois fatores.
+- Papéis da equipe: autor, revisor e aprovador são exercidos por [@GuilhermeFelix95](https://github.com/GuilhermeFelix95), único mantenedor. Cada publicação é aprovada manualmente antes da assinatura.
+- Os membros da equipe com acesso à assinatura, no SignPath e no repositório, usam autenticação em dois fatores.
 - A chave de assinatura das atualizações do app é separada e não é usada para assinar o instalador do Windows.
+- Privacidade: o processo de assinatura envia à SignPath apenas o instalador gerado a partir deste repositório, sem dados dos usuários do app.
 
 ## Pré-requisitos
 
