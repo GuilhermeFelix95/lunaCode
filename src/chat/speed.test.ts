@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { readShowSpeed, saveShowSpeed, tokensPerSecond } from "./speed";
+import { tokensPerSecond } from "./speed";
 
 describe("velocidade da resposta", () => {
   it("divide os tokens de saída medidos pelo tempo desde o primeiro texto", () => {
@@ -15,20 +15,7 @@ describe("velocidade da resposta", () => {
     expect(tokensPerSecond(100, 3000, 3000)).toBeNull();
   });
 
-  it("sem tokens medidos a taxa é zero", () => {
-    expect(tokensPerSecond(0, 1000, 2500)).toBe(0);
-  });
-});
-
-describe("opção de ver a velocidade", () => {
-  it("vem desligada e lembra a escolha entre sessões", () => {
-    localStorage.clear();
-    expect(readShowSpeed()).toBe(false);
-
-    saveShowSpeed(true);
-    expect(readShowSpeed()).toBe(true);
-
-    saveShowSpeed(false);
-    expect(readShowSpeed()).toBe(false);
+  it("sem tokens medidos não há taxa, e zero não aparece como velocidade", () => {
+    expect(tokensPerSecond(0, 1000, 2500)).toBeNull();
   });
 });

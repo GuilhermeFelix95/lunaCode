@@ -334,33 +334,20 @@ describe("Composer: modo /meta", () => {
 });
 
 describe("Composer: velocidade da resposta", () => {
-  it("mostra a velocidade medida quando a opção está ligada e a resposta roda", () => {
-    setup({ running: true, speed: 42, showSpeed: true });
+  it("mostra a velocidade medida durante a resposta, sem botão para ligar", () => {
+    setup({ running: true, speed: 42 });
     expect(screen.getByText("42 tokens/s")).toBeTruthy();
-  });
-
-  it("com a opção desligada, não mostra a velocidade mesmo durante a resposta", () => {
-    setup({ running: true, speed: 42, showSpeed: false });
-    expect(screen.queryByText("42 tokens/s")).toBeNull();
+    expect(screen.queryByLabelText("Mostrar velocidade da resposta")).toBeNull();
   });
 
   it("depois do turno, continua mostrando o valor final medido", () => {
-    setup({ running: false, speed: 42, showSpeed: true });
+    setup({ running: false, speed: 42 });
     expect(screen.getByText("42 tokens/s")).toBeTruthy();
   });
 
   it("sem medição ainda, não mostra número nenhum", () => {
-    setup({ running: true, speed: null, showSpeed: true });
+    setup({ running: true, speed: null });
     expect(screen.queryByText(/tokens\/s/)).toBeNull();
-  });
-
-  it("o botão de velocidade reflete a opção e alterna ao clicar", () => {
-    const props = setup({ showSpeed: true, onToggleSpeed: vi.fn() });
-    const toggle = screen.getByLabelText("Mostrar velocidade da resposta");
-
-    expect(toggle.getAttribute("aria-pressed")).toBe("true");
-    fireEvent.click(toggle);
-    expect(props.onToggleSpeed).toHaveBeenCalledOnce();
   });
 });
 

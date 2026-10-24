@@ -309,8 +309,7 @@ describe("ChatView: continuidade e envio", () => {
     expect(second.permission).toBe("fullAccess");
   });
 
-  it("mostra a velocidade medida pelos tokens de saída e a mantém depois do fim do turno", async () => {
-    localStorage.setItem("luna.chat.showSpeed", "1");
+  it("mostra a velocidade medida pelos tokens de saída, sem botão, e a mantém depois do fim do turno", async () => {
     const now = vi.spyOn(Date, "now").mockReturnValue(1_000);
     try {
       render(<ChatView onPersist={() => {}} />);
@@ -329,7 +328,24 @@ describe("ChatView: continuidade e envio", () => {
       await waitFor(() => expect(screen.getByText("25 tokens/s")).toBeTruthy());
     } finally {
       now.mockRestore();
-      localStorage.removeItem("luna.chat.showSpeed");
+    }
+  });
+
+  it("sem tokens medidos, a resposta não mostra velocidade nenhuma, nem zero", async () => {
+    const now = vi.spyOn(Date, "now").mockReturnValue(1_000);
+    try {
+      render(<ChatView onPersist={() => {}} />);
+      await waitFor(() => expect((screen.getByLabelText("Mensagem") as HTMLTextAreaElement).disabled).toBe(false));
+
+      await send("sem medição");
+      now.mockReturnValue(2_000);
+      emit({ kind: "textDelta", text: "resposta" });
+      now.mockReturnValue(3_000);
+
+      expect(screen.queryByText(/tokens\/s/)).toBeNull();
+      expect(screen.queryByLabelText("Mostrar velocidade da resposta")).toBeNull();
+    } finally {
+      now.mockRestore();
     }
   });
 
