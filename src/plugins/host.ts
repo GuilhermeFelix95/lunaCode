@@ -71,19 +71,6 @@ export interface PluginApi {
   readonly ui: PluginUiApi;
   /** Requer permissão `theme`. Registra um tema que o usuário pode escolher em Aparência. */
   readonly theme: PluginThemeApi;
-  /** Requer permissão `skills`. Lista nome e descrição das skills instaladas, sem o conteúdo delas. */
-  readonly skills: PluginSkillsApi;
-}
-
-/** Skill instalada, só com o que o plugin precisa para escolher. */
-export interface PluginSkill {
-  id: string;
-  name: string;
-  description: string;
-}
-
-export interface PluginSkillsApi {
-  list(): Promise<PluginSkill[]>;
 }
 
 /** Tema de plugin: variáveis CSS do tema e um CSS livre, aplicados enquanto ele estiver escolhido. */
@@ -118,7 +105,7 @@ export interface CommandResult {
 }
 
 const COMMAND_NAME = /^[a-z][a-z0-9-]*$/;
-const PERMISSIONS = ["commands", "hooks", "modes", "cache", "ui", "theme", "autofix", "skills"] as const;
+const PERMISSIONS = ["commands", "hooks", "modes", "cache", "ui", "theme", "autofix"] as const;
 const TOKEN_NAME = /^--[a-z0-9-]+$/;
 const TOKEN_VALUE_FORBIDDEN = /[;{}<>]/;
 const THEME_CSS_LIMIT = 64 * 1024;
@@ -137,9 +124,6 @@ export class PluginHost {
   private notices: string[] = [];
   readonly loaded: string[] = [];
   readonly errors: string[] = [];
-
-  /** Lista de skills vinda do núcleo do app. Por padrão, vazia (testes e uso sem o app). */
-  constructor(private readonly listSkills: () => Promise<PluginSkill[]> = async () => []) {}
 
   /** Sobe a cada reset. Uma carga que começou antes do reset não pode ativar nada depois dele. */
   private generation = 0;
@@ -294,7 +278,6 @@ export class PluginHost {
       },
     };
 
-    const skillsApi: PluginSkillsApi = { list: () => this.listSkills() };
     const uiApi = this.ui.api(id);
     const themeApi: PluginThemeApi = {
       register: (theme) => {
@@ -337,10 +320,6 @@ export class PluginHost {
       get cache() {
         require("cache");
         return cacheApi;
-      },
-      get skills() {
-        require("skills");
-        return skillsApi;
       },
       registerCommand: (name, handler) => {
         require("commands");

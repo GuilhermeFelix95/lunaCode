@@ -39,7 +39,6 @@ import {
   MCP_CHANGED,
   SKILLS_CHANGED,
   listBackgroundTasks,
-  listSkills,
   onBackgroundTask,
   startBackgroundTask,
   stopBackgroundTask,
@@ -397,7 +396,7 @@ export function ChatView({
   const [notes, setNotes] = useState<string[]>([]);
   /// Volta no tempo esperando a confirmação do usuário.
   const [pendingRewind, setPendingRewind] = useState<{ index: number; checkpoint: string; text: string } | null>(null);
-  const [host] = useState(() => new PluginHost(() => listSkills()));
+  const [host] = useState(() => new PluginHost());
   // Modos que os plugins oferecem; o escolhido vale só para o próximo envio.
   const [modes, setModes] = useState<PluginMode[]>([]);
   const [modeId, setModeId] = useState("");
