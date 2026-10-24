@@ -741,12 +741,12 @@ fn wait_until_loaded() {
 }
 
 /// Acesso à página da aba ativa. A implementação real fala com a webview; os testes usam uma falsa.
-trait BrowserPage {
+pub(crate) trait BrowserPage {
     fn reply(&self, method: &str, args: &[Value]) -> Result<Value, String>;
 }
 
 /// Permissão da pessoa para ações sensíveis. A implementação real pergunta no chat da conversa.
-trait ActionGate {
+pub(crate) trait ActionGate {
     fn confirm(&self, run_id: &str, action: &str, name: &str) -> Result<(), String>;
 }
 
@@ -790,7 +790,7 @@ fn tool_act(run_id: &str, action: &str, args: &Value) -> Result<String, String> 
     act_with(&AppPage, &AppGate, run_id, action, args)
 }
 
-fn act_with(page: &dyn BrowserPage, gate: &dyn ActionGate, run_id: &str, action: &str, args: &Value) -> Result<String, String> {
+pub(crate) fn act_with(page: &dyn BrowserPage, gate: &dyn ActionGate, run_id: &str, action: &str, args: &Value) -> Result<String, String> {
     let reference = reference(args)?;
     let info = page.reply("inspect", &[json!(reference)])?;
     if info["ok"].as_bool() != Some(true) {
