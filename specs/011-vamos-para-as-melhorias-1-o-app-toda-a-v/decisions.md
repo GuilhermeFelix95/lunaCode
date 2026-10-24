@@ -87,3 +87,15 @@
 
 ## Rodada 18
 - Quer que eu escreva agora o script CDP e a página de teste com input de arquivo, para você rodar o spike?: Sim, escreva o script e a página
+
+## Rodada 19
+- O que você quer excluir?: Tudo que foi feito nesta sessão, inclusive as branches já publicadas no GitHub
+
+## Rodada 20
+- Como tratar a branch local feat/navegador-tarefas, que existe só neste computador e tem 9 commits do item 4?: porque nao publicar ela? o que ela faz?
+
+## Rodada 21
+- Como você quer seguir com a branch feat/navegador-tarefas?: essa branch é pr ao agente mexer no navegador correto? se sim entra no linkedim e faz uma postagem mas deixa em rascunho pra ver
+
+## Rodada 22
+- Como seguir com a branch feat/navegador-tarefas e o teste no LinkedIn?: Integrar fix/abas-por-projeto nesta branch e depois fazer o teste no LinkedIn em rascunho
