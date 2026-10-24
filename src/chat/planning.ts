@@ -65,6 +65,12 @@ export function planFromReply(reply: { text: string; questions: Question[] | nul
   return !reply.questions || asksApproval ? reply.text : null;
 }
 
+/// O plano está pronto quando a resposta traz o bloco `luna-plano` ou pede a aprovação. Rodada de perguntas não está pronta.
+export function planIsReady(reply: { text: string; questions: Question[] | null }): boolean {
+  if (extractPlan(reply.text)) return true;
+  return reply.questions?.some((q) => q.options.includes(APPROVE_OPTION)) ?? false;
+}
+
 /// Lê "Contexto entendido: X%" da resposta. Sem a linha, devolve null.
 const UNDERSTOOD = /Contexto entendido:\s*(\d{1,3})\s*%/i;
 export function contextUnderstood(text: string): number | null {

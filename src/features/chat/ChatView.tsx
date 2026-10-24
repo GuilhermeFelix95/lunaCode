@@ -52,7 +52,7 @@ import { contextFor, withContext } from "../../chat/handoff";
 import { autoCompactEnabled, compactPreamble, COMPACT_PROMPT, needsCompaction, sessionsFrom } from "../../chat/compact";
 import { goalInstruction, goalShouldContinue, isGoalDone, MAX_GOAL_ROUNDS, stripGoalMarker } from "../../chat/goal";
 import { readShowSpeed, saveShowSpeed, tokensPerSecond } from "../../chat/speed";
-import { APPROVE_OPTION, approvalPrompt, contextUnderstood, extractPlan, loadPlanTarget, planFromReply, QUESTION_PROTOCOL, streamingPlan, withPlanInstruction } from "../../chat/planning";
+import { APPROVE_OPTION, approvalPrompt, contextUnderstood, extractPlan, loadPlanTarget, planFromReply, planIsReady, QUESTION_PROTOCOL, streamingPlan, withPlanInstruction } from "../../chat/planning";
 import { extractQuestions, type Question, type ReplyParts } from "../../chat/questions";
 import { applyEvent } from "../../chat/reducer";
 import { summarize, type CacheUsage, type TurnRecord } from "../../chat/promptCache";
@@ -214,6 +214,8 @@ export function ChatView({
   const [planning, setPlanning] = useState(initial?.planning ?? false);
   // Último plano da conversa: a resposta do modo plano (ou da spec) fica no painel.
   const [plan, setPlan] = useState<string | undefined>(initial?.plan);
+  // O último turno no modo plano trouxe o plano pronto, e não só uma rodada de perguntas: só então aparece o card de aprovação.
+  const [planReady, setPlanReady] = useState(Boolean(initial?.plan));
   const planRef = useRef(plan);
   // Pasta da spec desta conversa (specs/NNN-slug), criada na primeira aprovação do plano.
   const specDirRef = useRef<string | undefined>(initial?.specDir);
@@ -853,6 +855,7 @@ export function ChatView({
             commit(applyEvent(messagesRef.current, { kind: "textDelta", text: planParts.summary }, turnProvider.current, turnLabel.current));
           }
         }
+        if (turnPlanning.current) setPlanReady(planIsReady(parsed));
         const draft = planParts?.plan ?? planFromReply(parsed, turnPlanning.current);
         if (draft) {
           planRef.current = draft;
@@ -1562,7 +1565,7 @@ ${outgoing}`
           </button>
         )}
 
-        {planning && lastIsReply && !running && (
+        {planning && planReady && lastIsReply && !running && (
           <div className="plan-approval" role="region" aria-label={t("chat.planApprovalAria")}>
             <p className="plan-approval__context">
               {understood === null
