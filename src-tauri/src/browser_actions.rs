@@ -20,9 +20,9 @@ const MIN_RESULTS: usize = 3;
 const MAX_QUERY: usize = 200;
 
 /// Palavras que tornam uma ação sensível: comprar, pagar, enviar, publicar, apagar ou confirmar.
-const SENSITIVE_WORDS: [&str; 24] = [
-    "comprar", "compra", "pagar", "pagamento", "checkout", "buy", "pay", "enviar", "envie", "send", "publicar", "publish", "excluir", "apagar",
-    "remover", "delete", "remove", "confirmar", "confirm", "submit", "transferir", "transfer", "assinar", "subscribe",
+const SENSITIVE_WORDS: [&str; 26] = [
+    "comprar", "compra", "pagar", "pagamento", "checkout", "buy", "pay", "enviar", "envie", "send", "publicar", "publish", "postar", "post",
+    "excluir", "apagar", "remover", "delete", "remove", "confirmar", "confirm", "submit", "transferir", "transfer", "assinar", "subscribe",
 ];
 
 /// Motor escolhido em Configurações > Navegador. O front manda a escolha ao mudar; o padrão é o Google.
@@ -177,6 +177,8 @@ mod tests {
         assert!(is_sensitive("Publicar"));
         assert!(is_sensitive("Excluir conta"));
         assert!(is_sensitive("Submit"));
+        assert!(is_sensitive("Postar"));
+        assert!(is_sensitive("Post"));
         assert!(!is_sensitive("Fechar"));
         assert!(!is_sensitive("Inscrever-se"));
         // Palavra dentro de outra não conta: "compartilhar" não é "compra".
