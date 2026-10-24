@@ -99,3 +99,12 @@
 
 ## Rodada 22
 - Como seguir com a branch feat/navegador-tarefas e o teste no LinkedIn?: Integrar fix/abas-por-projeto nesta branch e depois fazer o teste no LinkedIn em rascunho
+
+## Rodada 23
+- Você já entrou no LinkedIn pelo navegador do Luna? Quando estiver logado, eu sigo com o teste em rascunho.: a pagina de login do google nao carrega
+
+## Rodada 24
+- Como você quer entrar no LinkedIn no navegador do Luna?: Login pelo Google, depois de eu investigar o bloqueio
+
+## Rodada 25
+- Como quer que eu confirme o bloqueio do login Google no navegador do Luna?: Eu abro o login do LinkedIn e clico em 'Continuar com Google', sem digitar senha
