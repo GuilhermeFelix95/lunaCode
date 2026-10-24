@@ -154,7 +154,7 @@ pub fn send_prompt(
     let injected = {
         let marks = app.state::<SpecMarks>();
         let stamp = (!spec.is_empty() || !rules.is_empty()).then(|| SpecMarks::hash(&format!("{spec}\u{0}{rules}")));
-        stamp.filter(|hash| prelude_needed(&marks, request.session_id.as_deref(), *hash)).map(|hash| {
+        stamp.filter(|hash| prelude_needed(&marks, request.session_id.as_deref(), *hash)).inspect(|&hash| {
             request.prompt = spec::with_spec(&spec, &request.prompt);
             if !rules.is_empty() {
                 request.prompt = rules::with_rules(&rules, &request.prompt);
@@ -162,7 +162,6 @@ pub fn send_prompt(
             if let Some(id) = &request.session_id {
                 marks.insert(id.clone(), hash);
             }
-            hash
         })
     };
     if run_id.is_empty() || run_id.len() > 64 || !run_id.chars().all(|c| c.is_ascii_alphanumeric() || c == '-') {

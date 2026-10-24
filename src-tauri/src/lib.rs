@@ -8,6 +8,8 @@ pub mod browser;
 pub mod browser_actions;
 pub mod browser_bookmarks;
 pub mod browser_tabs;
+#[cfg(test)]
+mod browser_tests;
 pub mod browser_history;
 pub mod browser_import;
 pub mod changes;
@@ -79,6 +81,7 @@ pub fn run() {
         .plugin(tauri_plugin_notification::init())
         .plugin(tauri_plugin_updater::Builder::new().build())
         .plugin(tauri_plugin_process::init())
+        .plugin(tauri_plugin_opener::init())
         .setup(|app| {
             use tauri::Manager;
             // Erros também vão para luna.log na pasta de logs do app.
@@ -98,7 +101,7 @@ pub fn run() {
             match app.path().app_data_dir() {
                 Ok(dir) => {
                     if let Err(e) = browser::start(app.handle().clone(), &dir) {
-                        logfile::error(&format!("{e}"));
+                        logfile::error(&e.to_string());
                     }
                 }
                 Err(e) => logfile::error(&format!("não foi possível localizar a pasta de dados para o navegador: {e}")),
@@ -126,7 +129,7 @@ pub fn run() {
             match app.path().app_data_dir() {
                 Ok(dir) => {
                     if let Err(e) = plugins::seed::install_defaults(&dir) {
-                        logfile::error(&format!("{e}"));
+                        logfile::error(&e.to_string());
                     }
                 }
                 Err(e) => logfile::error(&format!("não foi possível localizar a pasta de dados para os plugins padrão: {e}")),

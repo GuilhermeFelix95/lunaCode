@@ -1,0 +1,25 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <title>Página de teste: upload</title>
+</head>
+<body>
+  <main>
+    <h1>Enviar arquivo</h1>
+    <form id="formulario-upload">
+      <label for="arquivo">Arquivo</label>
+      <input type="file" id="arquivo" name="arquivo">
+    </form>
+    <p id="resultado" aria-live="polite"></p>
+  </main>
+  <script>
+    document.getElementById("arquivo").addEventListener("change", (evento) => {
+      const arquivo = evento.target.files[0];
+      document.getElementById("resultado").textContent = arquivo
+        ? `recebido:${arquivo.name}:${arquivo.size}`
+        : "nenhum arquivo";
+    });
+  </script>
+</body>
+</html>

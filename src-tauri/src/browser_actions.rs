@@ -20,9 +20,9 @@ const MIN_RESULTS: usize = 3;
 const MAX_QUERY: usize = 200;
 
 /// Palavras que tornam uma ação sensível: comprar, pagar, enviar, publicar, apagar ou confirmar.
-const SENSITIVE_WORDS: [&str; 24] = [
-    "comprar", "compra", "pagar", "pagamento", "checkout", "buy", "pay", "enviar", "envie", "send", "publicar", "publish", "excluir", "apagar",
-    "remover", "delete", "remove", "confirmar", "confirm", "submit", "transferir", "transfer", "assinar", "subscribe",
+const SENSITIVE_WORDS: [&str; 26] = [
+    "comprar", "compra", "pagar", "pagamento", "checkout", "buy", "pay", "enviar", "envie", "send", "publicar", "publish", "postar", "post",
+    "excluir", "apagar", "remover", "delete", "remove", "confirmar", "confirm", "submit", "transferir", "transfer", "assinar", "subscribe",
 ];
 
 /// Motor escolhido em Configurações > Navegador. O front manda a escolha ao mudar; o padrão é o Google.
@@ -72,7 +72,7 @@ pub fn engine_order(preferred: &str) -> Vec<&'static str> {
 
 /// Um motor serve quando trouxe links suficientes para outros sites.
 pub fn has_results(links: &Value) -> bool {
-    links.as_array().map_or(false, |items| items.len() >= MIN_RESULTS)
+    links.as_array().is_some_and(|items| items.len() >= MIN_RESULTS)
 }
 
 /// Texto de resultados de busca: uma linha por link, com o texto e o endereço.
@@ -138,7 +138,7 @@ pub fn render_snapshot(snapshot: &Value) -> String {
             item["name"].as_str().unwrap_or_default(),
         ));
     }
-    if snapshot["items"].as_array().map_or(true, |items| items.is_empty()) {
+    if snapshot["items"].as_array().is_none_or(|items| items.is_empty()) {
         lines.push("(nenhum elemento interativo visível)".into());
     }
     lines.join("\n")
@@ -177,6 +177,8 @@ mod tests {
         assert!(is_sensitive("Publicar"));
         assert!(is_sensitive("Excluir conta"));
         assert!(is_sensitive("Submit"));
+        assert!(is_sensitive("Postar"));
+        assert!(is_sensitive("Post"));
         assert!(!is_sensitive("Fechar"));
         assert!(!is_sensitive("Inscrever-se"));
         // Palavra dentro de outra não conta: "compartilhar" não é "compra".

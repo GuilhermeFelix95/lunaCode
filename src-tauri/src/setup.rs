@@ -162,7 +162,7 @@ mod tests {
         let known_dir = temp_dir("known");
         std::fs::write(known_dir.join("codex.exe"), b"").unwrap();
 
-        let found = find("codex", &[path_dir], &[known_dir.clone()]);
+        let found = find("codex", &[path_dir], std::slice::from_ref(&known_dir));
 
         assert_eq!(found, Some(known_dir.join("codex.exe")));
     }
@@ -188,7 +188,7 @@ mod tests {
         std::fs::write(path_dir.join("claude.exe"), b"").unwrap();
         std::fs::write(known_dir.join("claude.exe"), b"").unwrap();
 
-        let found = find("claude", &[path_dir.clone()], &[known_dir]);
+        let found = find("claude", std::slice::from_ref(&path_dir), &[known_dir]);
 
         assert_eq!(found, Some(path_dir.join("claude.exe")));
     }
@@ -197,7 +197,7 @@ mod tests {
     fn a_missing_cli_is_not_found() {
         let dir = temp_dir("missing");
 
-        assert_eq!(find("nao-existe-luna", &[dir.clone()], &[dir]), None);
+        assert_eq!(find("nao-existe-luna", std::slice::from_ref(&dir), std::slice::from_ref(&dir)), None);
     }
 
     #[test]

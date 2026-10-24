@@ -1,6 +1,6 @@
-//! ImportaÃƒÂ§ÃƒÂ£o dos arquivos exportados pelo Chrome ou pelo Edge:
-//! HTML de favoritos e histÃƒÂ³rico (formato Netscape) e CSV de senhas.
-//! As senhas ficam criptografadas com a DPAPI do usuÃƒÂ¡rio do Windows, sem texto puro no arquivo.
+//! Importação dos arquivos exportados pelo Chrome ou pelo Edge:
+//! HTML de favoritos e histórico (formato Netscape) e CSV de senhas.
+//! As senhas ficam criptografadas com a DPAPI do usuário do Windows, sem texto puro no arquivo.
 use std::fs;
 use std::path::Path;
 
@@ -13,10 +13,10 @@ use crate::commands::app_data_dir;
 
 const PASSWORDS_FILE: &str = "browser-passwords.json";
 const MAX_PASSWORDS: usize = 200;
-/// Teto de links lidos de um arquivo exportado, para um export gigante nÃƒÂ£o travar o app.
+/// Teto de links lidos de um arquivo exportado, para um export gigante não travar o app.
 const MAX_LINKS_PER_FILE: usize = 5_000;
 
-/// O papel do arquivo HTML: os favoritos vÃƒÂ£o para a lista de favoritos; o histÃƒÂ³rico vai para as visitas.
+/// O papel do arquivo HTML: os favoritos vão para a lista de favoritos; o histórico vai para as visitas.
 #[derive(Debug, Clone, Copy, PartialEq, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub enum ImportTarget {
@@ -24,7 +24,7 @@ pub enum ImportTarget {
     History,
 }
 
-/// Senha importada e aberta para consulta e cÃƒÂ³pia.
+/// Senha importada e aberta para consulta e cópia.
 #[derive(Debug, Clone, PartialEq, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct PasswordOut {
@@ -33,7 +33,7 @@ pub struct PasswordOut {
     pub password: String,
 }
 
-/// Como a senha fica no arquivo: sÃƒÂ³ o blob criptografado.
+/// Como a senha fica no arquivo: só o blob criptografado.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 struct PasswordStored {
@@ -42,7 +42,7 @@ struct PasswordStored {
     blob: String,
 }
 
-// ---- DPAPI (Windows): criptografia ligada ao usuÃƒÂ¡rio da sessÃƒÂ£o. ----
+// ---- DPAPI (Windows): criptografia ligada ao usuário da sessão. ----
 
 #[cfg(windows)]
 mod dpapi {
@@ -91,7 +91,7 @@ mod dpapi {
             let input = blob(plain.as_bytes());
             let mut out = CRYPT_INTEGER_BLOB { cbData: 0, pbData: core::ptr::null_mut() };
             if CryptProtectData(&input, core::ptr::null(), core::ptr::null(), core::ptr::null(), core::ptr::null(), 0, &mut out) == 0 {
-                return Err("a DPAPI nÃƒÂ£o aceitou proteger a senha".into());
+                return Err("a DPAPI não aceitou proteger a senha".into());
             }
             let vec = std::slice::from_raw_parts(out.pbData, out.cbData as usize).to_vec();
             LocalFree(out.pbData as *mut c_void);
@@ -104,11 +104,11 @@ mod dpapi {
             let input = blob(blob_bytes);
             let mut out = CRYPT_INTEGER_BLOB { cbData: 0, pbData: core::ptr::null_mut() };
             if CryptUnprotectData(&input, core::ptr::null_mut(), core::ptr::null(), core::ptr::null(), core::ptr::null(), 0, &mut out) == 0 {
-                return Err("nÃƒÂ£o foi possÃƒÂ­vel desbloquear uma senha importada".into());
+                return Err("não foi possível desbloquear uma senha importada".into());
             }
             let vec = std::slice::from_raw_parts(out.pbData, out.cbData as usize).to_vec();
             LocalFree(out.pbData as *mut c_void);
-            String::from_utf8(vec).map_err(|_| "a senha desbloqueada nÃƒÂ£o ÃƒÂ© um texto vÃƒÂ¡lido".into())
+            String::from_utf8(vec).map_err(|_| "a senha desbloqueada não é um texto válido".into())
         }
     }
 
@@ -128,7 +128,7 @@ mod dpapi {
 #[cfg(not(windows))]
 mod dpapi {
     pub fn protect(_plain: &str) -> Result<Vec<u8>, String> {
-        Err("a criptografia de senhas por DPAPI sÃƒÂ³ existe no Windows".into())
+        Err("a criptografia de senhas por DPAPI só existe no Windows".into())
     }
 }
 
@@ -144,26 +144,26 @@ fn load_passwords_in(dir: &Path) -> Vec<PasswordStored> {
 }
 
 fn save_passwords_in(dir: &Path, list: &[PasswordStored]) -> Result<(), String> {
-    fs::create_dir_all(dir).map_err(|e| format!("nÃƒÂ£o foi possÃƒÂ­vel criar a pasta de dados: {e}"))?;
+    fs::create_dir_all(dir).map_err(|e| format!("não foi possível criar a pasta de dados: {e}"))?;
     let text =
-        serde_json::to_string_pretty(list).map_err(|e| format!("nÃƒÂ£o foi possÃƒÂ­vel montar o cofre de senhas: {e}"))?;
+        serde_json::to_string_pretty(list).map_err(|e| format!("não foi possível montar o cofre de senhas: {e}"))?;
     let tmp = dir.join(format!("{PASSWORDS_FILE}.tmp"));
-    fs::write(&tmp, text).map_err(|e| format!("nÃƒÂ£o foi possÃƒÂ­vel gravar {PASSWORDS_FILE}: {e}"))?;
-    fs::rename(&tmp, passwords_path(dir)).map_err(|e| format!("nÃƒÂ£o foi possÃƒÂ­vel salvar {PASSWORDS_FILE}: {e}"))
+    fs::write(&tmp, text).map_err(|e| format!("não foi possível gravar {PASSWORDS_FILE}: {e}"))?;
+    fs::rename(&tmp, passwords_path(dir)).map_err(|e| format!("não foi possível salvar {PASSWORDS_FILE}: {e}"))
 }
 
-/// Links de um HTML no formato Netscape: pares (endereÃƒÂ§o, tÃƒÂ­tulo), sem repetiÃƒÂ§ÃƒÂ£o no arquivo,
-/// sÃƒÂ³ http e https (o mesmo filtro do navegador), dentro do limite por arquivo.
+/// Links de um HTML no formato Netscape: pares (endereço, título), sem repetição no arquivo,
+/// só http e https (o mesmo filtro do navegador), dentro do limite por arquivo.
 pub fn links_in(html: &str) -> Vec<(String, String)> {
-    // A busca por marcas usa a versÃƒÂ£o minÃƒÂºscula: os ÃƒÂ­ndices batem com o original,
-    // porque to_ascii_lowercase preserva as posiÃƒÂ§ÃƒÂµes dos bytes.
+    // A busca por marcas usa a versão minúscula: os índices batem com o original,
+    // porque to_ascii_lowercase preserva as posições dos bytes.
     let lower = html.to_ascii_lowercase();
     let mut cursor = 0usize;
     let mut out: Vec<(String, String)> = Vec::new();
     while let Some(rel) = lower[cursor..].find("<a") {
         let tag_start = cursor + rel;
         let after = &lower[(tag_start + 2)..];
-        // Aceita <A>, <a> e <a href: rejeita palavras que comeÃƒÂ§am por "a", como <aside>.
+        // Aceita <A>, <a> e <a href: rejeita palavras que começam por "a", como <aside>.
         if !matches!(after.chars().next(), Some(' ' | '\t' | '\n' | '\r')) {
             cursor = tag_start + 2;
             continue;
@@ -211,7 +211,7 @@ fn decode_entities(text: &str) -> String {
     text.replace("&lt;", "<").replace("&gt;", ">").replace("&quot;", "\"").replace("&#39;", "'").replace("&amp;", "&")
 }
 
-/// Importa os links de um arquivo HTML para favoritos ou histÃƒÂ³rico. Devolve quantos entraram.
+/// Importa os links de um arquivo HTML para favoritos ou histórico. Devolve quantos entraram.
 pub fn import_html_in(dir: &Path, html: &str, target: ImportTarget) -> Result<usize, String> {
     let links = links_in(html);
     match target {
@@ -219,7 +219,7 @@ pub fn import_html_in(dir: &Path, html: &str, target: ImportTarget) -> Result<us
         ImportTarget::History => {
             let mut count = 0;
             for (url, _) in links {
-                // Um endereÃƒÂ§o ruim nÃƒÂ£o derruba o lote inteiro: ele sÃƒÂ³ nÃƒÂ£o entra.
+                // Um endereço ruim não derruba o lote inteiro: ele só não entra.
                 if crate::browser_history::record_in(dir, &url).is_ok() {
                     count += 1;
                 }
@@ -229,7 +229,7 @@ pub fn import_html_in(dir: &Path, html: &str, target: ImportTarget) -> Result<us
     }
 }
 
-/// Junta os links na lista de favoritos, sem repetir os endereÃƒÂ§os e respeitando o teto.
+/// Junta os links na lista de favoritos, sem repetir os endereços e respeitando o teto.
 fn import_into_bookmarks(dir: &Path, links: Vec<(String, String)>) -> Result<usize, String> {
     let mut list = browser_bookmarks::load_in(dir);
     let mut count = 0;
@@ -255,8 +255,8 @@ fn import_into_bookmarks(dir: &Path, links: Vec<(String, String)>) -> Result<usi
     Ok(count)
 }
 
-/// Linhas de um CSV com campos entre aspas e vÃƒÂ­rgulas dentro das aspas
-/// (ÃƒÂ© como o Chrome e o Edge exportam as senhas). As aspas dobradas viram uma aspa sÃƒÂ³.
+/// Linhas de um CSV com campos entre aspas e vírgulas dentro das aspas
+/// (é como o Chrome e o Edge exportam as senhas). As aspas dobradas viram uma aspa só.
 pub fn csv_rows(text: &str) -> Vec<Vec<String>> {
     let mut rows: Vec<Vec<String>> = Vec::new();
     let mut row: Vec<String> = Vec::new();
@@ -294,20 +294,20 @@ pub fn csv_rows(text: &str) -> Vec<Vec<String>> {
         row.push(field);
         rows.push(row);
     }
-    // Linha final vazia (por causa do \\n do fim) nÃƒÂ£o ÃƒÂ© linha de dados.
+    // Linha final vazia (por causa do \\n do fim) não é linha de dados.
     rows.into_iter().filter(|row| row.iter().any(|field| !field.trim().is_empty())).collect()
 }
 
-/// Colunas que o CSV precisa ter, achadas pelo nome do cabeÃƒÂ§alho.
+/// Colunas que o CSV precisa ter, achadas pelo nome do cabeçalho.
 fn column(rows: &[Vec<String>], names: &[&str]) -> Result<usize, String> {
-    let header = rows.first().ok_or("o CSV estÃƒÂ¡ vazio")?;
+    let header = rows.first().ok_or("o CSV está vazio")?;
     for (index, cell) in header.iter().enumerate() {
         let cell = cell.trim().to_lowercase();
         if names.iter().any(|name| cell == *name) {
             return Ok(index);
         }
     }
-    Err(format!("o CSV nÃƒÂ£o tem a coluna {}; ele precisa ter as colunas url, username e password", names[0]))
+    Err(format!("o CSV não tem a coluna {}; ele precisa ter as colunas url, username e password", names[0]))
 }
 
 /// Importa as senhas de um CSV exportado (colunas url, username e password). Devolve quantas entraram.
@@ -323,7 +323,7 @@ pub fn import_passwords_in(dir: &Path, csv: &str) -> Result<usize, String> {
         let values = |column: usize| row.get(column).map(|c| c.trim()).unwrap_or("");
         let url = match parse_url(values(url_index)) {
             Ok(parsed) => parsed.to_string(),
-            // Linha sem endereÃƒÂ§o vÃƒÂ¡lido nÃƒÂ£o entra, mas nÃƒÂ£o derruba o lote.
+            // Linha sem endereço válido não entra, mas não derruba o lote.
             Err(_) => continue,
         };
         let login = values(login_index);
@@ -337,14 +337,14 @@ pub fn import_passwords_in(dir: &Path, csv: &str) -> Result<usize, String> {
         count += 1;
         if list.len() > MAX_PASSWORDS {
             list.pop();
-            return Err(format!("o cofre aceita atÃƒÂ© {MAX_PASSWORDS} senhas; ele jÃƒÂ¡ estÃƒÂ¡ cheio"));
+            return Err(format!("o cofre aceita até {MAX_PASSWORDS} senhas; ele já está cheio"));
         }
     }
     save_passwords_in(dir, &list)?;
     Ok(count)
 }
 
-/// Lista as senhas importadas, jÃƒÂ¡ descriptografadas, para consulta e cÃƒÂ³pia.
+/// Lista as senhas importadas, já descriptografadas, para consulta e cópia.
 pub fn passwords_in(dir: &Path) -> Result<Vec<PasswordOut>, String> {
     load_passwords_in(dir)
         .into_iter()
@@ -389,13 +389,13 @@ fn base64_encode(bytes: &[u8]) -> String {
 
 fn base64_decode(text: &str) -> Result<Vec<u8>, String> {
     use base64::Engine;
-    base64::engine::general_purpose::STANDARD.decode(text).map_err(|_| "o cofre de senhas estÃƒÂ¡ corrompido".into())
+    base64::engine::general_purpose::STANDARD.decode(text).map_err(|_| "o cofre de senhas está corrompido".into())
 }
 
 #[tauri::command(async)]
 pub fn browser_import_html(app: AppHandle, path: String, target: ImportTarget) -> Result<usize, String> {
     let dir = app_data_dir(&app)?;
-    let html = fs::read_to_string(&path).map_err(|e| format!("nÃƒÂ£o foi possÃƒÂ­vel ler {}: {e}", path))?;
+    let html = fs::read_to_string(&path).map_err(|e| format!("não foi possível ler {}: {e}", path))?;
     let count = import_html_in(&dir, &html, target)?;
     if matches!(target, ImportTarget::Bookmarks) {
         browser_bookmarks::notify_changed(&app);
@@ -406,7 +406,7 @@ pub fn browser_import_html(app: AppHandle, path: String, target: ImportTarget) -
 #[tauri::command(async)]
 pub fn browser_import_passwords(app: AppHandle, path: String) -> Result<usize, String> {
     let dir = app_data_dir(&app)?;
-    let csv = fs::read_to_string(&path).map_err(|e| format!("nÃƒÂ£o foi possÃƒÂ­vel ler {}: {e}", path))?;
+    let csv = fs::read_to_string(&path).map_err(|e| format!("não foi possível ler {}: {e}", path))?;
     import_passwords_in(&dir, &csv)
 }
 
@@ -433,14 +433,14 @@ mod tests {
 <DL><p>
 <DT><A HREF="https://vps.exemplo.com/dash" ADD_DATE="1710000000">Painel da VPS</A>
 </DL><p>
-<DT><A HREF="https://docs.rust-lang.org">DocumentaÃƒÂ§ÃƒÂ£o do Rust</A>
+<DT><A HREF="https://docs.rust-lang.org">Documentação do Rust</A>
 <DT><A HREF="file:///C:/local.html">Arquivo local</A>
 </DL><p>
 </BODY></HTML>"#;
 
     const PASSWORD_CSV: &str = r#"name,url,username,password
 GitHub,https://github.com/login,ana,minha-senha-secreta
-"Loja, do ZÃƒÂ©",https://lojazee.example.org/login,jo;se,"senha com vÃƒÂ­rgula"" e aspas"
+"Loja, do Zé",https://lojazee.example.org/login,jo;se,"senha com vírgula"" e aspas"
 "#;
 
     #[test]
@@ -451,7 +451,7 @@ GitHub,https://github.com/login,ana,minha-senha-secreta
             links,
             vec![
                 ("https://vps.exemplo.com/dash".into(), "Painel da VPS".into()),
-                ("https://docs.rust-lang.org/".into(), "DocumentaÃƒÂ§ÃƒÂ£o do Rust".into()),
+                ("https://docs.rust-lang.org/".into(), "Documentação do Rust".into()),
             ]
         );
     }
@@ -490,8 +490,8 @@ GitHub,https://github.com/login,ana,minha-senha-secreta
         assert_eq!(rows.len(), 3);
         assert_eq!(rows[1][2], "ana");
         assert_eq!(rows[1][3], "minha-senha-secreta");
-        assert_eq!(rows[2][3], "senha com vÃƒÂ­rgula\" e aspas");
-        assert_eq!(rows[2][0], "Loja, do ZÃƒÂ©");
+        assert_eq!(rows[2][3], "senha com vírgula\" e aspas");
+        assert_eq!(rows[2][0], "Loja, do Zé");
     }
 
     #[test]
@@ -523,14 +523,14 @@ GitHub,https://github.com/login,ana,minha-senha-secreta
         let count = import_passwords_in(&dir, PASSWORD_CSV).unwrap();
 
         assert_eq!(count, 2);
-        // O arquivo nÃƒÂ£o traz a senha em texto puro.
+        // O arquivo não traz a senha em texto puro.
         let raw = fs::read_to_string(passwords_path(&dir)).unwrap();
         assert!(!raw.contains("minha-senha-secreta"));
-        assert!(!raw.contains("senha com vÃƒÂ­rgula"));
+        assert!(!raw.contains("senha com vírgula"));
 
         let list = passwords_in(&dir).unwrap();
         assert!(list.iter().any(|p| p.password == "minha-senha-secreta" && p.login == "ana"));
-        assert!(list.iter().any(|p| p.password.contains("vÃƒÂ­rgula") && p.url.contains("lojazee")));
+        assert!(list.iter().any(|p| p.password.contains("vírgula") && p.url.contains("lojazee")));
     }
 
     #[test]

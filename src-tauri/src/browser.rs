@@ -18,6 +18,7 @@ use serde_json::{json, Value};
 use tauri::webview::PageLoadEvent;
 use tauri::webview::NewWindowResponse;
 use tauri::{AppHandle, Emitter, LogicalPosition, LogicalSize, Manager, Position, Rect, Size, Url, Webview, WebviewBuilder, WebviewUrl};
+use tauri_plugin_opener::OpenerExt;
 
 use crate::browser_actions::{self, page_call};
 use crate::browser_import;
@@ -43,7 +44,10 @@ const CALLBACK_TIMEOUT: Duration = Duration::from_secs(10);
 const LOAD_TIMEOUT: Duration = Duration::from_secs(15);
 /// Posição e tamanho padrão quando o agente abre o navegador antes da aba: a aba ajusta depois.
 const DEFAULT_BOUNDS: Bounds = Bounds { x: 0.0, y: 0.0, width: 900.0, height: 600.0 };
-const TOOL_NAMES: [&str; 9] = [
+/// Resposta do envio de arquivo até o spike de viabilidade (WebView2) ser aprovado. Ver a spec, item 4.
+const UPLOAD_UNSUPPORTED: &str = "envio de arquivo não suportado ainda: o app não consegue anexar arquivos em páginas. Avise a pessoa de que o anexo precisa ser feito manualmente.";
+
+const TOOL_NAMES: [&str; 10] = [
     "browser_navigate",
     "browser_read",
     "browser_snapshot",
@@ -53,6 +57,7 @@ const TOOL_NAMES: [&str; 9] = [
     "browser_scroll",
     "browser_wait",
     "browser_search",
+    "browser_upload",
 ];
 /// Tempo máximo que `browser_wait` espera um texto aparecer.
 const MAX_WAIT: Duration = Duration::from_secs(15);
@@ -247,17 +252,27 @@ fn create_tab(url: Url, bounds: Bounds, visible: bool) -> Result<u32, String> {
     let link_app = app.clone();
     let created = window.add_child(
         // Sem foco: a página não rouba o teclado do chat quando nasce.
-        WebviewBuilder::new(&tab_label(id), WebviewUrl::External(url))
+        WebviewBuilder::new(tab_label(id), WebviewUrl::External(url))
             .focused(false)
             .initialization_script(shortcut_script())
-            .on_navigation(move |url| match shortcut_key(url) {
-                Some(key) => {
-                    let _ = shortcut_app.emit(SHORTCUT_EVENT, key);
-                    false
+            .on_navigation(move |url| {
+                if is_google_sign_in(url) {
+                    open_sign_in_externally(&shortcut_app, url);
+                    return false;
                 }
-                None => true,
+                match shortcut_key(url) {
+                    Some(key) => {
+                        let _ = shortcut_app.emit(SHORTCUT_EVENT, key);
+                        false
+                    }
+                    None => true,
+                }
             })
             .on_new_window(move |url, _features| {
+                if is_google_sign_in(&url) {
+                    open_sign_in_externally(&link_app, &url);
+                    return NewWindowResponse::Deny;
+                }
                 // Link com target=_blank (ou window.open) vira aba do navegador. Criar a aba numa thread própria:
                 // criar webview dentro do evento da página trava no Windows.
                 let link_app = link_app.clone();
@@ -319,6 +334,18 @@ fn remember_bounds(bounds: Bounds) {
 /// Abre um link de nova janela numa aba visível, na área da última aba mostrada. Só http e https.
 fn is_web_link(url: &Url) -> bool {
     matches!(url.scheme(), "http" | "https")
+}
+
+/// Páginas de login do Google. O Google recusa entrar dentro do WebView2, então elas abrem no navegador padrão.
+fn is_google_sign_in(url: &Url) -> bool {
+    is_web_link(url) && url.host_str() == Some("accounts.google.com")
+}
+
+/// Abre a página de login no navegador padrão do sistema, fora do app.
+fn open_sign_in_externally(app: &AppHandle, url: &Url) {
+    if let Err(e) = app.opener().open_url(url.as_str(), None::<&str>) {
+        logfile::error(&format!("não foi possível abrir o login no navegador padrão: {e}"));
+    }
 }
 
 fn open_link_in_new_tab(app: &AppHandle, url: Url) -> Result<(), String> {
@@ -699,7 +726,7 @@ pub async fn browser_close_tab(tab_id: u32) -> Result<Option<u32>, String> {
 /// Endereço atual e título da página, como o agente os lê.
 #[tauri::command]
 pub async fn browser_read() -> Result<String, String> {
-    tauri::async_runtime::spawn_blocking(|| read_page()).await.map_err(|e| e.to_string())?
+    tauri::async_runtime::spawn_blocking(read_page).await.map_err(|e| e.to_string())?
 }
 
 fn read_page() -> Result<String, String> {
@@ -740,10 +767,38 @@ fn wait_until_loaded() {
     }
 }
 
+/// Acesso à página da aba ativa. A implementação real fala com a webview; os testes usam uma falsa.
+pub(crate) trait BrowserPage {
+    fn reply(&self, method: &str, args: &[Value]) -> Result<Value, String>;
+}
+
+/// Permissão da pessoa para ações sensíveis. A implementação real pergunta no chat da conversa.
+pub(crate) trait ActionGate {
+    fn confirm(&self, run_id: &str, action: &str, name: &str) -> Result<(), String>;
+}
+
+/// Página real: chama o script na webview da aba ativa e devolve a resposta já lida.
+struct AppPage;
+
+impl BrowserPage for AppPage {
+    fn reply(&self, method: &str, args: &[Value]) -> Result<Value, String> {
+        let view = webview()?;
+        browser_actions::parse_page_reply(&eval_and_wait(&view, page_call(method, args))?)
+    }
+}
+
+/// Permissão real: pergunta no chat da conversa que roda o turno.
+struct AppGate;
+
+impl ActionGate for AppGate {
+    fn confirm(&self, run_id: &str, action: &str, name: &str) -> Result<(), String> {
+        confirm(run_id, action, name)
+    }
+}
+
 /// Chama um método do script da página na aba ativa e devolve a resposta já lida.
 fn page_reply(method: &str, args: &[Value]) -> Result<Value, String> {
-    let view = webview()?;
-    browser_actions::parse_page_reply(&eval_and_wait(&view, page_call(method, args))?)
+    AppPage.reply(method, args)
 }
 
 /// Lista numerada dos elementos da página, com a referência de cada um.
@@ -759,17 +814,21 @@ fn reference(args: &Value) -> Result<u64, String> {
 /// Clique ou digitação numa referência. Antes de clicar, confere o nome do elemento: ação sensível pede a
 /// permissão da pessoa no chat, e sem permissão o clique não acontece.
 fn tool_act(run_id: &str, action: &str, args: &Value) -> Result<String, String> {
+    act_with(&AppPage, &AppGate, run_id, action, args)
+}
+
+pub(crate) fn act_with(page: &dyn BrowserPage, gate: &dyn ActionGate, run_id: &str, action: &str, args: &Value) -> Result<String, String> {
     let reference = reference(args)?;
-    let info = page_reply("inspect", &[json!(reference)])?;
+    let info = page.reply("inspect", &[json!(reference)])?;
     if info["ok"].as_bool() != Some(true) {
         return Err(browser_actions::page_error(&info));
     }
     let name = info["name"].as_str().unwrap_or_default();
     if action == "click" && browser_actions::is_sensitive(name) {
-        confirm(run_id, action, name)?;
+        gate.confirm(run_id, action, name)?;
     }
     let value = args["text"].as_str().unwrap_or_default();
-    let reply = page_reply("act", &[json!(reference), json!(action), json!(value)])?;
+    let reply = page.reply("act", &[json!(reference), json!(action), json!(value)])?;
     if reply["ok"].as_bool() == Some(true) {
         Ok(format!("ok: {action} em [{reference}] \"{name}\""))
     } else {
@@ -878,6 +937,7 @@ fn dispatch_tool(name: &str, args: &Value, run_id: &str) -> Result<String, Strin
         "browser_scroll" => tool_scroll(args),
         "browser_wait" => tool_wait(args),
         "browser_search" => tool_search(args),
+        "browser_upload" => Err(UPLOAD_UNSUPPORTED.into()),
         other => Err(format!("ferramenta desconhecida: {other}")),
     }
 }
@@ -1052,7 +1112,8 @@ pub fn tool_specs() -> Value {
         { "name": "browser_press_key", "description": "Aperta uma tecla. Com ref, a tecla vai ao elemento; sem ref, ao que tem o foco. Esc fecha a maioria dos modais.", "inputSchema": { "type": "object", "properties": { "key": { "type": "string", "enum": key_list }, "ref": reference }, "required": ["key"] } },
         { "name": "browser_scroll", "description": "Rola a página, ou a área de rolagem de um elemento quando ref é dado. Use para achar botões fora da tela ou dentro de um modal.", "inputSchema": { "type": "object", "properties": { "direction": { "type": "string", "enum": ["up", "down"] }, "amount": { "type": "integer", "description": "Pixels, até 5000 (padrão 600)" }, "ref": reference }, "required": ["direction"] } },
         { "name": "browser_wait", "description": "Espera um texto aparecer na página, por até 15 segundos.", "inputSchema": { "type": "object", "properties": { "text": { "type": "string" }, "seconds": { "type": "integer" } }, "required": ["text"] } },
-        { "name": "browser_search", "description": "Pesquisa na web com o motor escolhido em Configurações > Navegador, e troca de motor só quando ele não traz resultados. Abre a busca na aba ativa e devolve os links.", "inputSchema": { "type": "object", "properties": { "query": { "type": "string" } }, "required": ["query"] } }
+        { "name": "browser_search", "description": "Pesquisa na web com o motor escolhido em Configurações > Navegador, e troca de motor só quando ele não traz resultados. Abre a busca na aba ativa e devolve os links.", "inputSchema": { "type": "object", "properties": { "query": { "type": "string" } }, "required": ["query"] } },
+        { "name": "browser_upload", "description": "Envia um arquivo para um campo de envio de uma referência do browser_snapshot. Ainda não é suportado: a resposta diz isso.", "inputSchema": { "type": "object", "properties": { "ref": reference, "path": { "type": "string" } }, "required": ["ref", "path"] } }
     ])
 }
 
@@ -1169,6 +1230,16 @@ mod tests {
     }
 
     #[test]
+    fn google_sign_in_pages_are_external_logins() {
+        // O Google recusa login dentro do WebView2: essas páginas abrem no navegador padrão do sistema.
+        assert!(is_google_sign_in(&Url::parse("https://accounts.google.com/signin/v2/identifier").unwrap()));
+        assert!(is_google_sign_in(&Url::parse("https://accounts.google.com/o/oauth2/auth?client_id=x").unwrap()));
+        assert!(!is_google_sign_in(&Url::parse("https://www.google.com/search?q=luna").unwrap()));
+        assert!(!is_google_sign_in(&Url::parse("https://accounts.google.com.evil.com/").unwrap()));
+        assert!(!is_google_sign_in(&Url::parse("https://www.linkedin.com/").unwrap()));
+    }
+
+    #[test]
     fn page_script_forwards_only_the_four_shortcuts() {
         let script = shortcut_script();
         assert!(script.contains("[\"t\",\"w\",\"l\",\"f\"]"));
@@ -1225,6 +1296,62 @@ mod tests {
     fn a_sensitive_action_without_a_conversation_to_ask_is_refused() {
         let refused = confirm("", "click", "Comprar agora").unwrap_err();
         assert!(refused.contains("não há conversa"), "{refused}");
+    }
+
+    /// Página falsa: responde ao inspect com um botão sensível e registra se o clique chegou a ser enviado.
+    struct FakePage {
+        clicks: std::cell::Cell<u32>,
+    }
+
+    impl BrowserPage for FakePage {
+        fn reply(&self, method: &str, _args: &[Value]) -> Result<Value, String> {
+            match method {
+                "inspect" => Ok(json!({ "ok": true, "name": "Publicar" })),
+                "act" => {
+                    self.clicks.set(self.clicks.get() + 1);
+                    Ok(json!({ "ok": true }))
+                }
+                other => Err(format!("método inesperado no teste: {other}")),
+            }
+        }
+    }
+
+    /// Permissão falsa: a pessoa nega (ou aprova) sem abrir o chat.
+    struct FakeGate {
+        allow: bool,
+    }
+
+    impl ActionGate for FakeGate {
+        fn confirm(&self, _run_id: &str, _action: &str, _name: &str) -> Result<(), String> {
+            if self.allow { Ok(()) } else { Err("negado pela pessoa no app".into()) }
+        }
+    }
+
+    /// Clique sensível sem permissão não chega à página.
+    #[test]
+    fn a_sensitive_click_denied_by_the_person_never_reaches_the_page() {
+        let page = FakePage { clicks: std::cell::Cell::new(0) };
+        let result = act_with(&page, &FakeGate { allow: false }, "run-x", "click", &json!({ "ref": 1 }));
+        assert!(result.is_err());
+        assert_eq!(page.clicks.get(), 0);
+    }
+
+    /// Com a permissão da pessoa, o mesmo clique sensível chega à página uma vez.
+    #[test]
+    fn a_sensitive_click_approved_by_the_person_reaches_the_page() {
+        let page = FakePage { clicks: std::cell::Cell::new(0) };
+        let result = act_with(&page, &FakeGate { allow: true }, "run-x", "click", &json!({ "ref": 1 }));
+        assert!(result.is_ok());
+        assert_eq!(page.clicks.get(), 1);
+    }
+
+    /// Envio de arquivo ainda sem teste de viabilidade aprovado: o agente recebe "não suportado", nunca falha em silêncio.
+    #[test]
+    fn browser_upload_says_it_is_not_supported_until_the_spike_passes() {
+        let listed = tool_specs().as_array().unwrap().iter().any(|t| t["name"] == "browser_upload");
+        assert!(listed);
+        let err = dispatch_tool("browser_upload", &json!({ "ref": 1, "path": "C:/imagem.png" }), "").unwrap_err();
+        assert!(err.contains("não suportado"), "{err}");
     }
 
     #[test]
