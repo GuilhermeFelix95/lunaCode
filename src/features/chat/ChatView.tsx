@@ -1043,7 +1043,7 @@ ${cliPrompt}`;
     setQuestions(null);
     setUnderstood(null);
     turnPlanning.current = plan;
-    // Perguntas: o modo diz se quer perguntas. "ask" continua valendo para o plugin antigo, que não declarava o campo.
+    // Perguntas: só o modo que declara `questions: false` fica sem seletor; o resto (incluindo o que não declara o campo) pergunta.
     turnAsk.current = turnAsksQuestions(plan, mode);
     turnUsage.current = null;
     turnMeta.current = { provider: route.provider, model: route.model, systemKey: [route.provider, route.profileId ?? "", route.model, route.effort].join("|") };

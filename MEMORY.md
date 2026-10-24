@@ -292,3 +292,4 @@ Formato: `AAAA-MM-DD | o que mudou` (ordem cronológica, linhas antigas nunca s�
 2026-10-24 | Login do Google passa a abrir no navegador padrão do sistema, fora do navegador do Luna
 2026-10-24 | Branch feat/navegador-tarefas mesclada no main; versão 0.3.0 preparada para release
 2026-10-24: Release 0.3.0 publicada como latest (tag v0.3.0, commit b306603): instalador e latest.json assinados com o release:app. Testes: vitest (829) e cargo (473) passando; tsc limpo.
+2026-10-24: Bloco de perguntas malformado é escondido no chat com aviso; modo sem o campo questions passa a mostrar o seletor.

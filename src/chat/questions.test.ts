@@ -103,9 +103,13 @@ describe("extractQuestions", () => {
     expect(turnAsksQuestions(false, { id: "revisar", questions: true })).toBe(true);
   });
 
-  it("modo que declara questions false, ou o plugin antigo sem o campo que não é 'ask', não faz perguntas", () => {
+  it("modo que declara questions false não faz perguntas", () => {
     expect(turnAsksQuestions(false, { id: "revisar", questions: false })).toBe(false);
-    expect(turnAsksQuestions(false, { id: "revisar" })).toBe(false);
+    expect(turnAsksQuestions(false, { id: "ask", questions: false })).toBe(false);
+  });
+
+  it("modo sem o campo questions também faz perguntas pelo seletor", () => {
+    expect(turnAsksQuestions(false, { id: "revisar" })).toBe(true);
     expect(turnAsksQuestions(false, { id: "ask" })).toBe(true);
   });
 
