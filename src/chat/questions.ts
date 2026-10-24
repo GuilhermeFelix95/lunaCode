@@ -18,6 +18,12 @@ export interface ReplyParts {
   warning?: string;
 }
 
+/// Um turno pode fazer perguntas no seletor quando é de planejamento, quando não tem modo (envio comum)
+/// ou quando o modo declara `questions`. Modo com `questions: false` fica com a resposta como texto.
+export function turnAsksQuestions(plan: boolean, mode: { id: string; questions?: boolean } | undefined): boolean {
+  return plan || mode === undefined || (mode.questions ?? mode.id === "ask");
+}
+
 const BLOCK = /```luna-perguntas\s*\n([\s\S]*?)\n```/;
 const MAX_OPTIONS = 6;
 const MALFORMED = "As perguntas vieram num formato inválido. Elas aparecem como texto abaixo.";

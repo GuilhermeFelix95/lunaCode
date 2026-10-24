@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { extractQuestions } from "./questions";
+import { extractQuestions, turnAsksQuestions } from "./questions";
 
 const BLOCK = [
   "Antes de começar, preciso saber:",
@@ -75,6 +75,18 @@ describe("extractQuestions", () => {
     const parts = extractQuestions('```luna-perguntas\n[{"pergunta": "Letra?", "opcoes": ' + options + ', "recomendada": "z"}]\n```');
 
     expect(parts.questions?.[0].options).toEqual(["z", "a", "b", "c", "d", "e"]);
+  });
+
+  it("o turno faz perguntas no plano, sem modo e com modo que declara questions", () => {
+    expect(turnAsksQuestions(true, { id: "x", questions: false })).toBe(true);
+    expect(turnAsksQuestions(false, undefined)).toBe(true);
+    expect(turnAsksQuestions(false, { id: "revisar", questions: true })).toBe(true);
+  });
+
+  it("modo que declara questions false, ou o plugin antigo sem o campo que não é 'ask', não faz perguntas", () => {
+    expect(turnAsksQuestions(false, { id: "revisar", questions: false })).toBe(false);
+    expect(turnAsksQuestions(false, { id: "revisar" })).toBe(false);
+    expect(turnAsksQuestions(false, { id: "ask" })).toBe(true);
   });
 
   it("multipla ausente vale false", () => {

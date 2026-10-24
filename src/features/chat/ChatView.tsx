@@ -53,7 +53,7 @@ import { autoCompactEnabled, compactPreamble, COMPACT_PROMPT, needsCompaction, s
 import { goalInstruction, goalShouldContinue, isGoalDone, MAX_GOAL_ROUNDS, stripGoalMarker } from "../../chat/goal";
 import { tokensPerSecond } from "../../chat/speed";
 import { APPROVE_OPTION, approvalPrompt, contextUnderstood, extractPlan, loadPlanTarget, planFromReply, planIsReady, QUESTION_PROTOCOL, streamingPlan, withPlanInstruction } from "../../chat/planning";
-import { extractQuestions, type Question, type ReplyParts } from "../../chat/questions";
+import { extractQuestions, turnAsksQuestions, type Question, type ReplyParts } from "../../chat/questions";
 import { applyEvent } from "../../chat/reducer";
 import { summarize, type CacheUsage, type TurnRecord } from "../../chat/promptCache";
 import { longCacheEnabled } from "../../chat/cacheSettings";
@@ -1041,7 +1041,7 @@ ${cliPrompt}`;
     setUnderstood(null);
     turnPlanning.current = plan;
     // Perguntas: o modo diz se quer perguntas. "ask" continua valendo para o plugin antigo, que não declarava o campo.
-    turnAsk.current = plan || (mode?.questions ?? mode?.id === "ask");
+    turnAsk.current = turnAsksQuestions(plan, mode);
     turnUsage.current = null;
     turnMeta.current = { provider: route.provider, model: route.model, systemKey: [route.provider, route.profileId ?? "", route.model, route.effort].join("|") };
     turnProvider.current = route.provider;
@@ -1081,10 +1081,9 @@ ${cliPrompt}`;
         provider: route.provider,
         profile: route.profileId ?? undefined,
         images,
-        prompt: withContext(
-          preamble,
-          plan ? withPlanInstruction(cliPrompt, loadPlanTarget()) : mode ? mode.instruction + "\n\n" + QUESTION_PROTOCOL + "\n\n" + cliPrompt : cliPrompt,
-        ),
+        // Sem modo nem plano, o protocolo vem antes do contexto, para não cair entre o rótulo e a mensagem.
+        prompt: (plan || mode ? "" : QUESTION_PROTOCOL + "\n\n") +
+          withContext(preamble, plan ? withPlanInstruction(cliPrompt, loadPlanTarget()) : mode ? mode.instruction + "\n\n" + QUESTION_PROTOCOL + "\n\n" + cliPrompt : cliPrompt),
         sessionId,
         cwd,
         permission: plan || mode ? "readOnly" : permission,

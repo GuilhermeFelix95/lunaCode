@@ -284,3 +284,4 @@ Formato: `AAAA-MM-DD | o que mudou` (ordem cronológica, linhas antigas nunca s�
 2026-10-24 | Tela de instalação das CLIs só abre na abertura quando nenhuma CLI está instalada (função pura needsCliSetup, branch fix/cli-abertura). Testes: vitest setup (3) e AccountsSection; tsc limpo.
 2026-10-24 | Card de aprovação do modo plano só aparece com o plano pronto (planIsReady, branch feat/card-aprovacao-plano). Testes: planning e ChatView (novo teste de rodada de perguntas falha no código antigo); tsc limpo.
 2026-10-24 | Velocidade da resposta fica sempre visível, sem botão (branch feat/velocidade-padrao). Sem tokens medidos não aparece mais 0 tokens/s. Testes: speed, Composer, ChatView e i18n; tsc limpo.
+2026-10-24 | Perguntas do envio comum (sem modo de planejamento) viram seletor, em vez de bloco de código (branch fix/perguntas-seletor).
