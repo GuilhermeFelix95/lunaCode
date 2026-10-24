@@ -12,6 +12,7 @@ import {
 import { ChatView } from "./features/chat/ChatView";
 import { SettingsView } from "./features/settings/SettingsView";
 import { SetupScreen } from "./features/setup/SetupScreen";
+import { needsCliSetup } from "./features/setup/needsCliSetup";
 import { Onboarding, onboardingDone } from "./features/onboarding/Onboarding";
 import { Sidebar } from "./features/sidebar/Sidebar";
 import type { CliStatus, CliUpdateInfo, Conversation, ConversationSummary } from "./types";
@@ -94,7 +95,7 @@ export function App() {
     void refreshList();
     cliStatus()
       .then((statuses) => {
-        if (statuses.some((status) => !status.installed)) setMissingCli(statuses);
+        if (needsCliSetup(statuses)) setMissingCli(statuses);
       })
       .catch(() => {
         // Sem a checagem, o app segue: o erro de CLI não encontrada aparece na conversa.
