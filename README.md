@@ -118,6 +118,16 @@ flowchart LR
 - Requisitos no Windows: pelo menos um CLI instalado e logado (`claude`, `codex` ou outro). Não é preciso Node.js nem Rust para quem só usa o app.
 - O instalador ainda não tem assinatura de código: o Windows pode mostrar um aviso do SmartScreen. Escolha "Mais informações" e depois "Executar assim mesmo".
 
+## Política de assinatura de código
+
+O projeto é distribuído sob a licença Apache 2.0 (ver `LICENSE`). A inscrição para assinatura gratuita de código aberto na SignPath Foundation está em andamento. Depois de aprovada, valem as regras abaixo:
+
+- Só são assinados os instaladores gerados a partir deste repositório, pelo processo de release.
+- O certificado é emitido para a SignPath Foundation, e o editor exibido no Windows será esse.
+- Cada publicação é aprovada manualmente antes da assinatura.
+- Os membros da equipe com acesso à assinatura usam autenticação em dois fatores.
+- A chave de assinatura das atualizações do app é separada e não é usada para assinar o instalador do Windows.
+
 ## Pré-requisitos
 
 Hoje o desenvolvimento e o build funcionam só no **Windows**:
