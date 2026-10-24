@@ -28,6 +28,7 @@ base64 = "0.22.1"
 toml_edit = "0.25.17"
 tauri-plugin-updater = "2"
 tauri-plugin-process = "2"
+tauri-plugin-opener = "2"
 
 [target.'cfg(windows)'.dependencies]
 # Só para ligar o salvamento de senha do WebView2 (ICoreWebView2Profile6) nas abas do navegador.

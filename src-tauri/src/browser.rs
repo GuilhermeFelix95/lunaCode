@@ -18,6 +18,7 @@ use serde_json::{json, Value};
 use tauri::webview::PageLoadEvent;
 use tauri::webview::NewWindowResponse;
 use tauri::{AppHandle, Emitter, LogicalPosition, LogicalSize, Manager, Position, Rect, Size, Url, Webview, WebviewBuilder, WebviewUrl};
+use tauri_plugin_opener::OpenerExt;
 
 use crate::browser_actions::{self, page_call};
 use crate::browser_import;
@@ -251,17 +252,27 @@ fn create_tab(url: Url, bounds: Bounds, visible: bool) -> Result<u32, String> {
     let link_app = app.clone();
     let created = window.add_child(
         // Sem foco: a página não rouba o teclado do chat quando nasce.
-        WebviewBuilder::new(&tab_label(id), WebviewUrl::External(url))
+        WebviewBuilder::new(tab_label(id), WebviewUrl::External(url))
             .focused(false)
             .initialization_script(shortcut_script())
-            .on_navigation(move |url| match shortcut_key(url) {
-                Some(key) => {
-                    let _ = shortcut_app.emit(SHORTCUT_EVENT, key);
-                    false
+            .on_navigation(move |url| {
+                if is_google_sign_in(url) {
+                    open_sign_in_externally(&shortcut_app, url);
+                    return false;
                 }
-                None => true,
+                match shortcut_key(url) {
+                    Some(key) => {
+                        let _ = shortcut_app.emit(SHORTCUT_EVENT, key);
+                        false
+                    }
+                    None => true,
+                }
             })
             .on_new_window(move |url, _features| {
+                if is_google_sign_in(&url) {
+                    open_sign_in_externally(&link_app, &url);
+                    return NewWindowResponse::Deny;
+                }
                 // Link com target=_blank (ou window.open) vira aba do navegador. Criar a aba numa thread própria:
                 // criar webview dentro do evento da página trava no Windows.
                 let link_app = link_app.clone();
@@ -323,6 +334,18 @@ fn remember_bounds(bounds: Bounds) {
 /// Abre um link de nova janela numa aba visível, na área da última aba mostrada. Só http e https.
 fn is_web_link(url: &Url) -> bool {
     matches!(url.scheme(), "http" | "https")
+}
+
+/// Páginas de login do Google. O Google recusa entrar dentro do WebView2, então elas abrem no navegador padrão.
+fn is_google_sign_in(url: &Url) -> bool {
+    is_web_link(url) && url.host_str() == Some("accounts.google.com")
+}
+
+/// Abre a página de login no navegador padrão do sistema, fora do app.
+fn open_sign_in_externally(app: &AppHandle, url: &Url) {
+    if let Err(e) = app.opener().open_url(url.as_str(), None::<&str>) {
+        logfile::error(&format!("não foi possível abrir o login no navegador padrão: {e}"));
+    }
 }
 
 fn open_link_in_new_tab(app: &AppHandle, url: Url) -> Result<(), String> {
@@ -703,7 +726,7 @@ pub async fn browser_close_tab(tab_id: u32) -> Result<Option<u32>, String> {
 /// Endereço atual e título da página, como o agente os lê.
 #[tauri::command]
 pub async fn browser_read() -> Result<String, String> {
-    tauri::async_runtime::spawn_blocking(|| read_page()).await.map_err(|e| e.to_string())?
+    tauri::async_runtime::spawn_blocking(read_page).await.map_err(|e| e.to_string())?
 }
 
 fn read_page() -> Result<String, String> {
@@ -1204,6 +1227,16 @@ mod tests {
         // Outra tecla e outro endereço continuam sendo navegação normal.
         assert_eq!(shortcut_key(&Url::parse("luna-shortcut://x").unwrap()), None);
         assert_eq!(shortcut_key(&Url::parse("https://t.com/").unwrap()), None);
+    }
+
+    #[test]
+    fn google_sign_in_pages_are_external_logins() {
+        // O Google recusa login dentro do WebView2: essas páginas abrem no navegador padrão do sistema.
+        assert!(is_google_sign_in(&Url::parse("https://accounts.google.com/signin/v2/identifier").unwrap()));
+        assert!(is_google_sign_in(&Url::parse("https://accounts.google.com/o/oauth2/auth?client_id=x").unwrap()));
+        assert!(!is_google_sign_in(&Url::parse("https://www.google.com/search?q=luna").unwrap()));
+        assert!(!is_google_sign_in(&Url::parse("https://accounts.google.com.evil.com/").unwrap()));
+        assert!(!is_google_sign_in(&Url::parse("https://www.linkedin.com/").unwrap()));
     }
 
     #[test]
