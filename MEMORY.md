@@ -295,3 +295,4 @@ Formato: `AAAA-MM-DD: o que foi feito` (ordem cronológica, linhas antigas nunca
 2026-10-24: Bloco de perguntas malformado é escondido no chat com aviso; modo sem o campo questions passa a mostrar o seletor.
 2026-10-24: Projetos da barra lateral em ordem alfabética, ignorando maiúsculas e acentos; nomes iguais desempatam pelo caminho.
 2026-10-24: Compactação automática volta a 90% da janela; análise de consumo de tokens feita por leitura de código, sem outra correção confirmada.
+2026-10-24: Plugin de roteamento de skills em rascunho, com permissão skills para ler a lista; a dica sugere só as skills que batem com o pedido.
