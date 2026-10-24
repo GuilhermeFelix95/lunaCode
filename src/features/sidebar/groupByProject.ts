@@ -10,7 +10,7 @@ export interface ProjectGroup {
   days: ConversationGroup[];
 }
 
-/// Agrupa conversas por pasta de trabalho. Projetos com conversa mais recente vêm primeiro.
+/// Agrupa conversas por pasta de trabalho. Projetos vêm em ordem alfabética pelo nome da pasta.
 export function groupByProject(items: ConversationSummary[], now: Date): ProjectGroup[] {
   const byCwd = new Map<string, ConversationSummary[]>();
   for (const item of items) {
@@ -20,17 +20,19 @@ export function groupByProject(items: ConversationSummary[], now: Date): Project
   }
 
   return [...byCwd.entries()]
-    .map(([cwd, list]) => {
-      const newestFirst = [...list].sort((a, b) => b.updatedAt - a.updatedAt);
-      return {
-        cwd,
-        name: folderName(cwd),
-        days: groupByDay(newestFirst, now),
-        latest: newestFirst[0].updatedAt,
-      };
-    })
-    .sort((a, b) => b.latest - a.latest)
-    .map(({ latest: _latest, ...group }) => group);
+    .sort(([cwdA], [cwdB]) => compareProjects(cwdA, cwdB))
+    .map(([cwd, list]) => ({
+      cwd,
+      name: folderName(cwd),
+      days: groupByDay([...list].sort((a, b) => b.updatedAt - a.updatedAt), now),
+    }));
+}
+
+/// Ordena pelo nome da pasta ignorando maiúsculas e acentos; nomes iguais desempatam pelo caminho.
+/// Pela mesma regra, `Álbum` vem antes de `Alfa`, porque a comparação segue as letras base.
+function compareProjects(cwdA: string, cwdB: string): number {
+  const byName = folderName(cwdA).localeCompare(folderName(cwdB), undefined, { sensitivity: "base" });
+  return byName !== 0 ? byName : cwdA.localeCompare(cwdB, undefined, { sensitivity: "base" });
 }
 
 /// Nome curto de uma pasta: o último segmento do caminho (aceita `\` e `/`).
