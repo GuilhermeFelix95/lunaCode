@@ -43,7 +43,10 @@ const CALLBACK_TIMEOUT: Duration = Duration::from_secs(10);
 const LOAD_TIMEOUT: Duration = Duration::from_secs(15);
 /// Posição e tamanho padrão quando o agente abre o navegador antes da aba: a aba ajusta depois.
 const DEFAULT_BOUNDS: Bounds = Bounds { x: 0.0, y: 0.0, width: 900.0, height: 600.0 };
-const TOOL_NAMES: [&str; 9] = [
+/// Resposta do envio de arquivo até o spike de viabilidade (WebView2) ser aprovado. Ver a spec, item 4.
+const UPLOAD_UNSUPPORTED: &str = "envio de arquivo não suportado ainda: o app não consegue anexar arquivos em páginas. Avise a pessoa de que o anexo precisa ser feito manualmente.";
+
+const TOOL_NAMES: [&str; 10] = [
     "browser_navigate",
     "browser_read",
     "browser_snapshot",
@@ -53,6 +56,7 @@ const TOOL_NAMES: [&str; 9] = [
     "browser_scroll",
     "browser_wait",
     "browser_search",
+    "browser_upload",
 ];
 /// Tempo máximo que `browser_wait` espera um texto aparecer.
 const MAX_WAIT: Duration = Duration::from_secs(15);
@@ -910,6 +914,7 @@ fn dispatch_tool(name: &str, args: &Value, run_id: &str) -> Result<String, Strin
         "browser_scroll" => tool_scroll(args),
         "browser_wait" => tool_wait(args),
         "browser_search" => tool_search(args),
+        "browser_upload" => Err(UPLOAD_UNSUPPORTED.into()),
         other => Err(format!("ferramenta desconhecida: {other}")),
     }
 }
@@ -1084,7 +1089,8 @@ pub fn tool_specs() -> Value {
         { "name": "browser_press_key", "description": "Aperta uma tecla. Com ref, a tecla vai ao elemento; sem ref, ao que tem o foco. Esc fecha a maioria dos modais.", "inputSchema": { "type": "object", "properties": { "key": { "type": "string", "enum": key_list }, "ref": reference }, "required": ["key"] } },
         { "name": "browser_scroll", "description": "Rola a página, ou a área de rolagem de um elemento quando ref é dado. Use para achar botões fora da tela ou dentro de um modal.", "inputSchema": { "type": "object", "properties": { "direction": { "type": "string", "enum": ["up", "down"] }, "amount": { "type": "integer", "description": "Pixels, até 5000 (padrão 600)" }, "ref": reference }, "required": ["direction"] } },
         { "name": "browser_wait", "description": "Espera um texto aparecer na página, por até 15 segundos.", "inputSchema": { "type": "object", "properties": { "text": { "type": "string" }, "seconds": { "type": "integer" } }, "required": ["text"] } },
-        { "name": "browser_search", "description": "Pesquisa na web com o motor escolhido em Configurações > Navegador, e troca de motor só quando ele não traz resultados. Abre a busca na aba ativa e devolve os links.", "inputSchema": { "type": "object", "properties": { "query": { "type": "string" } }, "required": ["query"] } }
+        { "name": "browser_search", "description": "Pesquisa na web com o motor escolhido em Configurações > Navegador, e troca de motor só quando ele não traz resultados. Abre a busca na aba ativa e devolve os links.", "inputSchema": { "type": "object", "properties": { "query": { "type": "string" } }, "required": ["query"] } },
+        { "name": "browser_upload", "description": "Envia um arquivo para um campo de envio de uma referência do browser_snapshot. Ainda não é suportado: a resposta diz isso.", "inputSchema": { "type": "object", "properties": { "ref": reference, "path": { "type": "string" } }, "required": ["ref", "path"] } }
     ])
 }
 
@@ -1304,6 +1310,15 @@ mod tests {
         let result = act_with(&page, &FakeGate { allow: true }, "run-x", "click", &json!({ "ref": 1 }));
         assert!(result.is_ok());
         assert_eq!(page.clicks.get(), 1);
+    }
+
+    /// Envio de arquivo ainda sem teste de viabilidade aprovado: o agente recebe "não suportado", nunca falha em silêncio.
+    #[test]
+    fn browser_upload_says_it_is_not_supported_until_the_spike_passes() {
+        let listed = tool_specs().as_array().unwrap().iter().any(|t| t["name"] == "browser_upload");
+        assert!(listed);
+        let err = dispatch_tool("browser_upload", &json!({ "ref": 1, "path": "C:/imagem.png" }), "").unwrap_err();
+        assert!(err.contains("não suportado"), "{err}");
     }
 
     #[test]
