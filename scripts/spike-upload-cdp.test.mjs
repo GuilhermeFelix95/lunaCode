@@ -1,34 +1,37 @@
-import assert from "node:assert/strict";
-import { test } from "node:test";
+import { describe, expect, it } from "vitest";
 
 import { parseArgs, pickPageTarget } from "./spike-upload-cdp.mjs";
 
-test("pickPageTarget escolhe a aba de página da fixture de upload", () => {
-  const abas = [
-    { type: "page", url: "https://example.com", title: "Outra" },
-    { type: "page", url: "file:///C:/app/upload.html", title: "x" },
-  ];
-  assert.equal(pickPageTarget(abas), abas[1]);
+describe("pickPageTarget", () => {
+  it("escolhe a aba de página da fixture de upload", () => {
+    const abas = [
+      { type: "page", url: "https://example.com", title: "Outra" },
+      { type: "page", url: "file:///C:/app/upload.html", title: "x" },
+    ];
+    expect(pickPageTarget(abas)).toBe(abas[1]);
+  });
+
+  it("ignora abas que não são página", () => {
+    const abas = [{ type: "service_worker", url: "file:///upload.html", title: "" }];
+    expect(pickPageTarget(abas)).toBeNull();
+  });
+
+  it("retorna null sem aba correspondente", () => {
+    expect(pickPageTarget([])).toBeNull();
+  });
 });
 
-test("pickPageTarget ignora abas que não são página", () => {
-  const abas = [{ type: "service_worker", url: "file:///upload.html", title: "" }];
-  assert.equal(pickPageTarget(abas), null);
-});
+describe("parseArgs", () => {
+  it("usa a porta 9222 por padrão", () => {
+    expect(parseArgs([])).toEqual({ port: 9222, file: null });
+  });
 
-test("pickPageTarget retorna null sem aba correspondente", () => {
-  assert.equal(pickPageTarget([]), null);
-});
+  it("lê porta e arquivo", () => {
+    expect(parseArgs(["--port", "9333", "--file", "a.txt"])).toEqual({ port: 9333, file: "a.txt" });
+  });
 
-test("parseArgs usa a porta 9222 por padrão", () => {
-  assert.deepEqual(parseArgs([]), { port: 9222, file: null });
-});
-
-test("parseArgs lê porta e arquivo", () => {
-  assert.deepEqual(parseArgs(["--port", "9333", "--file", "a.txt"]), { port: 9333, file: "a.txt" });
-});
-
-test("parseArgs recusa argumento desconhecido e porta inválida", () => {
-  assert.throws(() => parseArgs(["--x", "1"]), /desconhecido/);
-  assert.throws(() => parseArgs(["--port", "abc"]), /Porta inválida/);
+  it("recusa argumento desconhecido e porta inválida", () => {
+    expect(() => parseArgs(["--x", "1"])).toThrow(/desconhecido/);
+    expect(() => parseArgs(["--port", "abc"])).toThrow(/Porta inválida/);
+  });
 });
