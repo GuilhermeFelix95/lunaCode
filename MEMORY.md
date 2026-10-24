@@ -286,3 +286,5 @@ Formato: `AAAA-MM-DD | o que mudou` (ordem cronológica, linhas antigas nunca s�
 2026-10-24 | Velocidade da resposta fica sempre visível, sem botão (branch feat/velocidade-padrao). Sem tokens medidos não aparece mais 0 tokens/s. Testes: speed, Composer, ChatView e i18n; tsc limpo.
 2026-10-24 | Perguntas do envio comum (sem modo de planejamento) viram seletor, em vez de bloco de código (branch fix/perguntas-seletor).
 2026-10-24 | Abas do navegador separadas por projeto (8 por projeto, guardadas ao trocar); velocidade e perguntas no envio comum; compactação automática em 70%; navegador das CLIs só em uso. Testes: vitest completo e cargo test --lib (465).
+2026-10-24 | Tarefas no navegador: "postar" passa a pedir permissão antes do clique (branch feat/navegador-tarefas). Página local de teste com formulário e botão Publicar, com o fluxo testado sem clique real.
+2026-10-24 | Ferramenta de envio de arquivo criada e respondendo que não é suportada até o teste de viabilidade ser aprovado.
