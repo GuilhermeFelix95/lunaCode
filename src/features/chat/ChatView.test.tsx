@@ -47,6 +47,7 @@ vi.mock("../../api", () => ({
   browserCloseTab: vi.fn(async () => null),
   browserState: vi.fn(async () => ({ tabs: [], active: null })),
   browserBookmarks: vi.fn(async () => []),
+  browserSetProject: vi.fn(async () => {}),
   browserBookmarkAdd: vi.fn(async () => []),
   browserBookmarkRemove: vi.fn(async () => []),
   browserSetBounds: vi.fn(async () => {}),

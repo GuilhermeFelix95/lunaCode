@@ -484,6 +484,11 @@ export function browserState(): Promise<BrowserState> {
   return invoke("browser_state");
 }
 
+/// Projeto que o navegador mostra: as abas dele aparecem e as dos outros projetos são escondidas.
+export function browserSetProject(project: string): Promise<void> {
+  return invoke("browser_set_project", { project });
+}
+
 /// Favorito do navegador: uma página salva para abrir depois.
 export interface BrowserBookmark {
   id: string;

@@ -38,6 +38,52 @@ static NEXT_ATTACHMENT: AtomicU64 = AtomicU64::new(1);
 #[derive(Default)]
 pub struct ActiveRuns(pub Mutex<HashMap<String, CancelHandle>>);
 
+/// O que já foi injetado no pedido de cada sessão nativa: sessão -> hash do texto (spec + regras).
+/// É o que segura o consumo: a spec reenviada inteira a cada turno é a maior fonte de tokens frescos,
+/// e nos turnos seguintes o `--resume` já a tem no histórico. No primeiro turno o id ainda não existe,
+/// então a marca é gravada quando o CLI emite `sessionStarted` (ver `send_prompt`).
+#[derive(Default)]
+pub struct SpecMarks(pub Mutex<HashMap<String, u64>>);
+
+/// Teto de entradas: sessões antigas são descartadas acima dele; no pior caso a spec é reenviada
+/// uma vez para uma sessão já esquecida.
+const MAX_SPEC_MARKS: usize = 256;
+
+impl SpecMarks {
+    /// Assinatura do texto injetado: mudou o conteúdo, mudou o hash, e o texto entra de novo.
+    fn hash(text: &str) -> u64 {
+        use std::collections::hash_map::DefaultHasher;
+        use std::hash::{Hash, Hasher};
+        let mut hasher = DefaultHasher::new();
+        text.hash(&mut hasher);
+        hasher.finish()
+    }
+
+    fn get(&self, key: &str) -> Option<u64> {
+        self.0.lock().ok()?.get(key).copied()
+    }
+
+    fn insert(&self, key: String, hash: u64) {
+        if let Ok(mut map) = self.0.lock() {
+            if map.len() >= MAX_SPEC_MARKS && !map.contains_key(&key) {
+                if let Some(old) = map.keys().next().cloned() {
+                    map.remove(&old);
+                }
+            }
+            map.insert(key, hash);
+        }
+    }
+}
+
+/// A preâmbulo (spec + regras globais) entra quando a sessão é nova — sem id ainda — ou quando o
+/// texto mudou desde a última injeção nela (spec criada ou editada no meio da conversa).
+fn prelude_needed(marks: &SpecMarks, session_id: Option<&str>, hash: u64) -> bool {
+    match session_id {
+        None => true,
+        Some(id) => marks.get(id) != Some(hash),
+    }
+}
+
 /// Evento de execução: o frontend filtra pelo `run_id` para entregar à conversa certa.
 #[derive(Clone, serde::Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -92,17 +138,33 @@ pub fn send_prompt(
     if account.is_some() && request.profile.is_some() {
         return Err("conta extra e perfil de API não podem ser usados juntos nesta conversa".into());
     }
-    // A spec da conversa (specs/NNN-slug, com decisões) vai em toda chamada. Sem ela, vale a pasta spec/ do projeto.
+    // A spec da conversa (specs/NNN-slug, com decisões) e as regras globais entram uma vez por
+    // sessão: nos turnos seguintes o `--resume` já as tem no histórico, e reenviá-las a cada turno
+    // paga centenas a milhares de tokens frescos na parte não cacheada do pedido.
     let spec = match &spec_dir {
         Some(dir) => spec::load_conversation_spec(&request.cwd, dir)?,
         None => spec::load_spec(&request.cwd)?,
     };
-    request.prompt = spec::with_spec(&spec, &request.prompt);
     // Perfis de API não leem ~/.claude nem ~/.codex: as regras globais vão no próprio pedido.
-    if request.profile.is_some() {
-        let rules = rules::load(&app_data_dir(&app)?)?;
-        request.prompt = rules::with_rules(&rules, &request.prompt);
-    }
+    let rules = if request.profile.is_some() {
+        rules::load(&app_data_dir(&app)?)?
+    } else {
+        String::new()
+    };
+    let injected = {
+        let marks = app.state::<SpecMarks>();
+        let stamp = (!spec.is_empty() || !rules.is_empty()).then(|| SpecMarks::hash(&format!("{spec}\u{0}{rules}")));
+        stamp.filter(|hash| prelude_needed(&marks, request.session_id.as_deref(), *hash)).map(|hash| {
+            request.prompt = spec::with_spec(&spec, &request.prompt);
+            if !rules.is_empty() {
+                request.prompt = rules::with_rules(&rules, &request.prompt);
+            }
+            if let Some(id) = &request.session_id {
+                marks.insert(id.clone(), hash);
+            }
+            hash
+        })
+    };
     if run_id.is_empty() || run_id.len() > 64 || !run_id.chars().all(|c| c.is_ascii_alphanumeric() || c == '-') {
         return Err("identificador de execução inválido".into());
     }
@@ -161,11 +223,17 @@ pub fn send_prompt(
 
     let mut session = Session::start_with_env(&request, &env)?;
     active.insert(run_id.clone(), session.cancel_handle());
+    crate::browser::bind_run(&run_id, &request.cwd.display().to_string());
     drop(active);
 
     std::thread::spawn(move || {
         let mut saw_done = false;
         session.pump(provider, |event| {
+            // Primeiro turno: a sessão nasceu agora, então o que foi injetado passa a valer para ela
+            // (sem esta marca, o turno seguinte reenviaria a spec de novo).
+            if let (Some(hash), ProviderEvent::SessionStarted { session_id }) = (injected, &event) {
+                app.state::<SpecMarks>().insert(session_id.clone(), hash);
+            }
             if matches!(event, ProviderEvent::Done { .. }) {
                 saw_done = true;
             }
@@ -176,6 +244,7 @@ pub fn send_prompt(
         // O turno já acabou (ou o stdout fechou): libera a conversa antes de esperar o processo sair.
         let runs = app.state::<ActiveRuns>();
         runs.0.lock().expect("lock das execuções ativas").remove(&run_id);
+        crate::browser::unbind_run(&run_id);
 
         let outcome = session.finish();
         if !saw_done {
@@ -899,7 +968,7 @@ pub fn cancel_prompt(run_id: String, runs: State<'_, ActiveRuns>) -> Result<(), 
 
 #[cfg(test)]
 mod tests {
-    use super::{free_workspace_in, read_attachment_in, safe_attachment_name};
+    use super::{free_workspace_in, prelude_needed, read_attachment_in, safe_attachment_name, SpecMarks, MAX_SPEC_MARKS};
     use std::path::Path;
 
     fn attachments_fixture(name: &str) -> std::path::PathBuf {
@@ -969,5 +1038,46 @@ mod tests {
     fn nome_vazio_vira_arquivo() {
         assert_eq!(safe_attachment_name(""), "arquivo");
         assert_eq!(safe_attachment_name("..."), "arquivo");
+    }
+
+    /// A spec (e as regras de perfil de API) entram uma vez por sessão, e voltam só quando o texto muda.
+    #[test]
+    fn prelude_entra_na_sessao_nova_e_nao_repete_no_proximo_turno() {
+        let marks = SpecMarks::default();
+        let hash = SpecMarks::hash("## stack.md\nReact");
+
+        // Primeiro turno: a sessão ainda não existe, então o texto entra.
+        assert!(prelude_needed(&marks, None, hash));
+
+        // Turno seguinte: o --resume já tem o texto no histórico, não reenvia.
+        marks.insert("sess-1".into(), hash);
+        assert!(!prelude_needed(&marks, Some("sess-1"), hash));
+
+        // Spec criada ou editada no meio da conversa: o texto volta a entrar.
+        assert!(prelude_needed(&marks, Some("sess-1"), SpecMarks::hash("## stack.md\nReact v2")));
+
+        // Outra conversa continua recebendo a spec.
+        assert!(prelude_needed(&marks, Some("sess-2"), hash));
+    }
+
+    /// A assinatura é estável para o mesmo texto e distinta para textos diferentes.
+    #[test]
+    fn assinatura_da_prelude_depende_do_conteudo() {
+        assert_eq!(SpecMarks::hash("spec"), SpecMarks::hash("spec"));
+        assert_ne!(SpecMarks::hash("spec"), SpecMarks::hash("spec v2"));
+    }
+
+    /// Sessões antigas são descartadas acima do teto, para o mapa não crescer sem limite.
+    #[test]
+    fn marcas_antigas_sao_descartadas_acima_do_teto() {
+        let marks = SpecMarks::default();
+        for i in 0..MAX_SPEC_MARKS {
+            marks.insert(format!("s{i}"), i as u64);
+        }
+        marks.insert("nova".into(), 42);
+
+        let map = marks.0.lock().unwrap();
+        assert_eq!(map.len(), MAX_SPEC_MARKS);
+        assert_eq!(map.get("nova"), Some(&42));
     }
 }
