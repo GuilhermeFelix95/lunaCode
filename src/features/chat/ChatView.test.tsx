@@ -224,18 +224,20 @@ describe("ChatView: continuidade e envio", () => {
     expect(screen.getByLabelText("Modo de planejamento").getAttribute("aria-pressed")).toBe("false");
   });
 
-  it("fora do modo Conversar, perguntas não viram seletor", async () => {
+  it("envio comum ensina o bloco de perguntas e mostra as perguntas no seletor", async () => {
     render(<ChatView onPersist={() => {}} />);
     await waitFor(() => expect((screen.getByLabelText("Mensagem") as HTMLTextAreaElement).disabled).toBe(false));
     await send("crie uma tela de login");
+    expect(vi.mocked(api.sendPrompt).mock.calls[0][0].prompt).toContain("luna-perguntas");
     emit({
       kind: "textDelta",
       text: 'Antes de começar:\n```luna-perguntas\n[{"pergunta": "Qual banco?", "opcoes": ["Postgres", "SQLite"]}]\n```',
     });
     emit({ kind: "done", ok: true });
 
-    await waitFor(() => expect(screen.getByLabelText("Enviar")).toBeTruthy());
-    expect(screen.queryByLabelText("Perguntas do agente")).toBeNull();
+    const picker = within(await screen.findByRole("region", { name: "Perguntas do agente" }));
+    expect(picker.getByRole("button", { name: "Postgres" })).toBeTruthy();
+    expect(screen.queryByText(/luna-perguntas/)).toBeNull();
   });
 
   it("sugestões da tela vazia preenchem a caixa sem enviar", async () => {
