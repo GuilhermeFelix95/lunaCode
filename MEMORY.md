@@ -298,3 +298,4 @@ Formato: `AAAA-MM-DD: o que foi feito` (ordem cronológica, linhas antigas nunca
 2026-10-24: Plugin de roteamento de skills em rascunho, com permissão skills para ler a lista; a dica sugere só as skills que batem com o pedido.
 2026-10-24: Roteador de skills abandonado: a permissão skills foi revertida e o rascunho do plugin apagado, porque o CLI não permite desligar skills por turno.
 2026-10-24: Instalador do Windows com imagens da Luna no cabeçalho e na lateral; assinatura gratuita aguarda inscrição na SignPath.
+2026-10-24: Versão 0.4.0 preparada com ordenação dos projetos, perguntas, compactação em 90% e instalador com a marca da Luna; testes: vitest (837) e cargo (474) passando; tsc limpo.
