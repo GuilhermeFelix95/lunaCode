@@ -11,9 +11,9 @@ describe("compactação", () => {
     expect(compactPreamble("## Objetivo\nTela de login.")).toContain("## Objetivo\nTela de login.");
   });
 
-  it("compacta sozinho a partir de 90% da janela", () => {
-    expect(needsCompaction(89_000, 100_000)).toBe(false);
-    expect(needsCompaction(90_000, 100_000)).toBe(true);
+  it("compacta sozinho a partir de 70% da janela", () => {
+    expect(needsCompaction(69_000, 100_000)).toBe(false);
+    expect(needsCompaction(70_000, 100_000)).toBe(true);
   });
 
   it("sem janela conhecida, nunca compacta sozinho", () => {
