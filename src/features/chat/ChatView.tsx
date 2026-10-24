@@ -823,9 +823,12 @@ export function ChatView({
           : { text: responseText.current, questions: null };
         if (parsed.warning) setNotes((current) => [...current, parsed.warning!]);
         if (turnPlanning.current) setUnderstood(contextUnderstood(responseText.current));
-        if (parsed.questions) {
+        // Bloco escondido (válido ou malformado) sai do texto da mensagem, não só da exibição.
+        if (parsed.text !== responseText.current) {
           const last = messagesRef.current.at(-1);
           if (last?.role === "assistant") commit([...messagesRef.current.slice(0, -1), { ...last, text: parsed.text }]);
+        }
+        if (parsed.questions) {
           // A única pergunta de um plano é a aprovação, que já tem o botão na barra: não repete no seletor.
           const approvalOnly = turnPlanning.current && parsed.questions.length === 1 && parsed.questions[0].options.includes(APPROVE_OPTION);
           if (!approvalOnly) {

@@ -28,13 +28,33 @@ describe("extractQuestions", () => {
     expect(parts).toEqual({ text: "Plano pronto: criar a tela.", questions: null });
   });
 
-  it("JSON inválido não quebra a conversa: mostra o texto e avisa", () => {
+  it("JSON inválido esconde o bloco e mostra só o aviso", () => {
     const broken = "Pergunta:\n```luna-perguntas\n[{pergunta: sem aspas}]\n```";
 
     const parts = extractQuestions(broken);
 
     expect(parts.questions).toBeNull();
-    expect(parts.text).toBe(broken);
+    expect(parts.text).toBe("Pergunta:");
+    expect(parts.warning).toContain("formato inválido");
+  });
+
+  it("bloco sem a cerca de fechamento é escondido e avisa, sem virar seletor", () => {
+    const unclosed = 'Pergunta:\n```luna-perguntas\n[{"pergunta": "Oi?", "opcoes": ["Sim", "Não"]}]';
+
+    const parts = extractQuestions(unclosed);
+
+    expect(parts.questions).toBeNull();
+    expect(parts.text).toBe("Pergunta:");
+    expect(parts.warning).toContain("não foram mostradas");
+  });
+
+  it("formato inválido com cerca fechada esconde o bloco e avisa", () => {
+    const reply = 'Pergunta:\n```luna-perguntas\n[{"pergunta": "Oi?", "opcoes": ["Sim"]}]\n```';
+
+    const parts = extractQuestions(reply);
+
+    expect(parts.questions).toBeNull();
+    expect(parts.text).toBe("Pergunta:");
     expect(parts.warning).toContain("formato inválido");
   });
 

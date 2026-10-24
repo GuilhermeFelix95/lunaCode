@@ -272,6 +272,21 @@ describe("ChatView: continuidade e envio", () => {
     expect(screen.queryByText(/luna-perguntas/)).toBeNull();
   });
 
+  it("bloco de perguntas sem a cerca de fechamento não aparece no chat e o aviso aparece", async () => {
+    render(<ChatView onPersist={() => {}} />);
+    await waitFor(() => expect((screen.getByLabelText("Mensagem") as HTMLTextAreaElement).disabled).toBe(false));
+    await send("crie uma tela de login");
+    emit({
+      kind: "textDelta",
+      text: 'Antes de começar:\n```luna-perguntas\n[{"pergunta": "Qual banco?", "opcoes": ["Postgres", "SQLite"]}]',
+    });
+    emit({ kind: "done", ok: true });
+
+    expect(await screen.findByText(/formato inválido/)).toBeTruthy();
+    expect(screen.queryByText(/luna-perguntas/)).toBeNull();
+    expect(screen.queryByRole("region", { name: "Perguntas do agente" })).toBeNull();
+  });
+
   it("sugestões da tela vazia preenchem a caixa sem enviar", async () => {
     render(<ChatView onPersist={() => {}} />);
 
