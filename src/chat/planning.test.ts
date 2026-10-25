@@ -250,7 +250,7 @@ describe("modo agente", () => {
     expect(text).toContain("A decisão final é do usuário");
   });
 
-  it("responde direto e para, quando a mensagem não pede alteração de código", () => {
+  it("responde direto e para, quando a mensagem é só agradecimento ou conversa", () => {
     const text = agentInstruction(DEFAULT_PLAN_TARGET);
 
     expect(text).toContain("Só agradecimento ou conversa, sem pergunta nem pedido, recebe resposta direta");
@@ -275,6 +275,22 @@ describe("modo agente", () => {
 
     expect(prompt.startsWith(agentInstruction(DEFAULT_PLAN_TARGET))).toBe(true);
     expect(prompt.endsWith("crie um login")).toBe(true);
+  });
+});
+
+describe("resposta direta no modo agente", () => {
+  it("um agradecimento não vira plano, mesmo com o modo agente ligado", () => {
+    expect(planFromReply({ text: "De nada!", questions: null }, true, true)).toBeNull();
+  });
+
+  it("uma resposta com a linha de contexto entendido vira plano", () => {
+    const reply = { text: "Contexto entendido: 90%\nPlano pronto.", questions: null };
+
+    expect(planFromReply(reply, true, true)).toBe(reply.text);
+  });
+
+  it("sem o modo agente, o plano continua sendo qualquer resposta sem perguntas", () => {
+    expect(planFromReply({ text: "## Plano\n\nPasso 1.", questions: null }, true)).toBe("## Plano\n\nPasso 1.");
   });
 });
 

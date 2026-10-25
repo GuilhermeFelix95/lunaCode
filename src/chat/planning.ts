@@ -59,10 +59,13 @@ export function streamingPlan(reply: string): string | null {
 
 /// O texto que vira plano na aba Plano, ou null. Vale para a resposta sem perguntas e para a que pede aprovação
 /// (a aprovação é a última pergunta do plano). Rodadas de perguntas não viram plano.
-export function planFromReply(reply: { text: string; questions: Question[] | null }, planning: boolean): string | null {
+/// No modo agente, resposta direta (sem linha de contexto nem plano) também não vira: senão substitui o plano na aba.
+export function planFromReply(reply: { text: string; questions: Question[] | null }, planning: boolean, agent = false): string | null {
   if (!planning || !reply.text.trim()) return null;
   const asksApproval = reply.questions?.some((q) => q.options.includes(APPROVE_OPTION)) ?? false;
-  return !reply.questions || asksApproval ? reply.text : null;
+  if (reply.questions && !asksApproval) return null;
+  if (agent && !asksApproval && contextUnderstood(reply.text) === null && !extractPlan(reply.text)) return null;
+  return reply.text;
 }
 
 /// O plano está pronto quando a resposta traz o bloco `luna-plano` ou pede a aprovação. Rodada de perguntas não está pronta.
@@ -150,7 +153,7 @@ export function agentInstruction(target: number): string {
     `2. Converse com o usuário no máximo ${AGENT_MAX_ROUNDS} rodadas para chegar a um consenso. Se passar disso, siga com o que foi combinado e diga o que ficou em aberto.`,
     "3. Se o pedido altera código ou arquitetura, pesquise na web as boas práticas do que foi combinado e cite a fonte. Se a documentação oficial não responder, diga isso antes de usar outras fontes. Se não tiver ferramenta de pesquisa nesta sessão, diga isso ao usuário antes de planejar, sem inventar fontes.",
     "4. Sempre que houver pesquisa, diga a melhor prática encontrada em uma ou duas frases simples, antes do plano. Se o combinado não a seguir, pergunte ao usuário e volte a conversar, sem plano. A decisão final é do usuário: se ele escolher outra opção, siga a escolha dele e registre o risco em ## Riscos.",
-    `5. Quando a pesquisa confirmar o combinado, escreva na primeira linha "Contexto entendido: X%" (de 0 a 100) e só então apresente o plano. Só apresente o plano quando o contexto chegar a ${target}% ou mais.`,
+    `5. Quando o combinado estiver claro (depois da pesquisa, se houve), escreva na primeira linha "Contexto entendido: X%" (de 0 a 100) e só então apresente o plano. Só apresente o plano quando o contexto chegar a ${target}% ou mais.`,
     "6. O plano tem um resumo de no máximo 3 linhas, fora de qualquer bloco, e depois o plano completo dentro de um bloco de código chamado luna-plano, em Markdown, com as seções: ## Contexto; ## Arquivos a alterar; ## Passos (numerados, cada um com a verificação); ## Não mexer; ## Testes; ## Riscos. Cite os arquivos pelo caminho, sem trechos de código.",
     "7. Termine perguntando se pode aprovar, com o bloco de perguntas e as opções \"Aprovar e executar\" e \"Ainda não\".",
     "8. Só comece a executar depois que o usuário aprovar.",
