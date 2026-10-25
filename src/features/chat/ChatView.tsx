@@ -52,7 +52,7 @@ import { contextFor, withContext } from "../../chat/handoff";
 import { autoCompactEnabled, compactPreamble, COMPACT_PROMPT, needsCompaction, sessionsFrom } from "../../chat/compact";
 import { goalInstruction, goalShouldContinue, isGoalDone, MAX_GOAL_ROUNDS, stripGoalMarker } from "../../chat/goal";
 import { tokensPerSecond } from "../../chat/speed";
-import { APPROVE_OPTION, approvalPrompt, contextUnderstood, extractPlan, loadPlanTarget, planFromReply, planIsReady, QUESTION_PROTOCOL, streamingPlan, withPlanInstruction } from "../../chat/planning";
+import { APPROVE_OPTION, approvalPrompt, contextUnderstood, extractPlan, loadPlanTarget, planFromReply, planIsReady, QUESTION_PROTOCOL, streamingPlan, withAgentInstruction, withAgentVerification, withPlanInstruction } from "../../chat/planning";
 import { extractQuestions, turnAsksQuestions, type Question, type ReplyParts } from "../../chat/questions";
 import { applyEvent } from "../../chat/reducer";
 import { summarize, type CacheUsage, type TurnRecord } from "../../chat/promptCache";
@@ -210,8 +210,11 @@ export function ChatView({
   const [cwd, setCwd] = useState(initial?.cwd ?? startCwd ?? "");
   const [model, setModel] = useState(initial?.model ?? "");
   const [effort, setEffort] = useState(initial?.effort ?? "");
-  // Modo plano começa desligado: só liga com o clique em Planejar.
+  // Agente é o padrão: entende, pesquisa, planeja, executa e verifica. Planejar é a alternativa sem pesquisa nem verificação.
+  const [agent, setAgent] = useState(initial?.agent ?? true);
   const [planning, setPlanning] = useState(initial?.planning ?? false);
+  // Conversa no fluxo de plano (Agente ou Planejar): perguntas, plano e aprovação são os mesmos.
+  const planFlow = planning || agent;
   // Último plano da conversa: a resposta do modo plano (ou da spec) fica no painel.
   const [plan, setPlan] = useState<string | undefined>(initial?.plan);
   // O último turno no modo plano trouxe o plano pronto, e não só uma rodada de perguntas: só então aparece o card de aprovação.
@@ -238,7 +241,7 @@ export function ChatView({
   const messagesRef = useRef(messages);
   // A resposta chega em pedaços: a tela troca de mensagens no máximo uma vez por quadro (ver chat/frameBatch.ts).
   const [frame] = useState(() => createFrameBatch(() => setMessages(messagesRef.current)));
-  const live = useRef({ provider, profileId, cwd, permission, model, effort, planning, running: false, sideTab: "changes" as SideTab });
+  const live = useRef({ provider, profileId, cwd, permission, model, effort, planning: planFlow, agent, running: false, sideTab: "changes" as SideTab });
   // O texto do campo mora no Composer, para cada tecla não re-renderizar a conversa inteira.
   // A conversa guarda uma cópia (para enviar) e o trecho do "/" (para o menu de comandos).
   const draftRef = useRef("");
@@ -474,7 +477,7 @@ export function ChatView({
   // Abre o terminal na primeira vez; depois ele só esconde, para não perder o shell.
   const [terminalOpened, setTerminalOpened] = useState(false);
   const [changesVersion, setChangesVersion] = useState(0);
-  live.current = { provider, profileId, cwd, permission, model, effort, planning, running, sideTab };
+  live.current = { provider, profileId, cwd, permission, model, effort, planning: planFlow, agent, running, sideTab };
   const [limits, setLimits] = useState<LimitState>({});
   const [context, setContext] = useState<ContextState | null>(null);
   // Tarefas do agente na resposta atual (aba Progresso), na ordem em que foram criadas.
@@ -929,6 +932,7 @@ export function ChatView({
       model: latest.model || undefined,
       effort: latest.effort || undefined,
       planning: latest.planning,
+      agent: latest.agent,
       profile: latest.profileId ?? undefined,
       costUsd: costRef.current || undefined,
       plan: planRef.current,
@@ -1086,7 +1090,7 @@ ${cliPrompt}`;
         images,
         // Sem modo nem plano, o protocolo vem antes do contexto, para não cair entre o rótulo e a mensagem.
         prompt: (plan || mode ? "" : QUESTION_PROTOCOL + "\n\n") +
-          withContext(preamble, plan ? withPlanInstruction(cliPrompt, loadPlanTarget()) : mode ? mode.instruction + "\n\n" + QUESTION_PROTOCOL + "\n\n" + cliPrompt : cliPrompt),
+          withContext(preamble, plan ? (live.current.agent ? withAgentInstruction(cliPrompt, loadPlanTarget()) : withPlanInstruction(cliPrompt, loadPlanTarget())) : mode ? mode.instruction + "\n\n" + QUESTION_PROTOCOL + "\n\n" + cliPrompt : cliPrompt),
         sessionId,
         cwd,
         permission: plan || mode ? "readOnly" : permission,
@@ -1097,6 +1101,8 @@ ${cliPrompt}`;
         effort: route.effort || undefined,
         contextWindow: route.provider === provider ? models.find((m) => m.id === route.model)?.contextWindow : undefined,
         subagents: !!orchestrator.subagent && route.provider === "claude",
+        // O modo agente pesquisa boas práticas e corrige com pesquisa, então a pesquisa fica liberada enquanto ele estiver ligado.
+        webSearch: live.current.agent,
         longCache: longCacheEnabled(),
       }, conversationId, specDirRef.current, route.provider === provider && activeAccount ? activeAccount : undefined);
     } catch (e) {
@@ -1213,6 +1219,7 @@ ${cliPrompt}`;
     // `/plugin instalar <pasta>` abre o mesmo cartão de instalação que a Luna mostra depois de criar um plugin.
     const luna = parseLunaCommand(prompt);
     if (luna?.id === "plano") {
+      setAgent(false);
       setPlanning(true);
       return;
     }
@@ -1245,7 +1252,7 @@ ${cliPrompt}`;
       }
       const mode = modes.find((m) => m.id === modeId);
       try {
-        const task = await startBackgroundTask(luna.task, cwd, planning || mode ? "readOnly" : permission, conversationId);
+        const task = await startBackgroundTask(luna.task, cwd, planFlow || mode ? "readOnly" : permission, conversationId);
         setBackgroundTasks((current) => [...current.filter((t) => t.id !== task.id), task]);
       } catch (err) {
         setNotes((current) => [...current, t("chat.backgroundStartFailed", { error: String(err) })]);
@@ -1286,7 +1293,7 @@ ${outgoing}`
       goalRef.current = { condition: goalCondition, rounds: 0 };
       setGoalActive(true);
     }
-    await run(prompt, goalCondition ? goalInstruction(goalCondition) : withFiles, planning, mode, imagePaths);
+    await run(prompt, goalCondition ? goalInstruction(goalCondition) : withFiles, planFlow, mode, imagePaths);
   }
 
   /// Guarda o uso de cache do turno e atualiza o resumo que o painel de cache lê (via host).
@@ -1338,7 +1345,7 @@ ${outgoing}`
   async function answerQuestions(text: string) {
     if (running) return;
     // No modo plano, escolher a opção de aprovação encerra o planejamento e executa, como o botão faz.
-    if (planning && text.split("\n").some((line) => line.endsWith(`: ${APPROVE_OPTION}`) || line === APPROVE_OPTION)) {
+    if (planFlow && text.split("\n").some((line) => line.endsWith(`: ${APPROVE_OPTION}`) || line === APPROVE_OPTION)) {
       await approvePlan();
       return;
     }
@@ -1346,10 +1353,10 @@ ${outgoing}`
     const lines = text.split("\n").map((line) => line.trim()).filter(Boolean);
     if (specDirRef.current && cwd) {
       void recordSpecDecisions(cwd, specDirRef.current, lines).catch((e) => console.error("não foi possível gravar as decisões da spec:", e));
-    } else if (planning) {
+    } else if (planFlow) {
       pendingRounds.current.push(lines);
     }
-    await run(text, text, planning, modes.find((m) => m.id === modeId));
+    await run(text, text, planFlow, modes.find((m) => m.id === modeId));
   }
 
   /// Aprovação do plano: sai do modo plano e manda o agente executar com a permissão escolhida.
@@ -1372,7 +1379,24 @@ ${outgoing}`
     }
     // A instrução de registro das etapas depende do motor que vai executar (o do papel de execução, se houver).
     const engine = routeFor("execute", { provider, profileId, model: "", effort: "" }, await loadOrchestrator()).provider;
-    await run(t("chat.planApproved"), approvalPrompt(planRef.current ?? null, engine, specDirRef.current), false, undefined, [], "execute");
+    // No modo agente, a execução leva a verificação: testes dos arquivos alterados, revisões e correção.
+    const execution = approvalPrompt(planRef.current ?? null, engine, specDirRef.current);
+    await run(t("chat.planApproved"), agent ? withAgentVerification(execution) : execution, false, undefined, [], "execute");
+  }
+
+  /// Agente e Planejar são alternativas: ligar um desliga o outro, e o botão ligado desliga o plano.
+  function toggleAgent() {
+    setPlanning(false);
+    setAgent((on) => !on);
+  }
+
+  function togglePlanning() {
+    if (planning && !agent) {
+      setPlanning(false);
+      return;
+    }
+    setAgent(false);
+    setPlanning(true);
   }
 
   function changeModel(next: string) {
@@ -1530,9 +1554,9 @@ ${outgoing}`
           <div className="chat__empty">
             <img src="/luna/logo.svg" alt="" className="chat__logo" />
             <h1>{t("chat.emptyTitle")}</h1>
-            <p>{planning ? t("chat.planningHint") : t("chat.talkingWith", { agent: agentLabel })}</p>
-            {planning && (
-              <button type="button" className="chat__skip" onClick={() => setPlanning(false)}>
+            <p>{planFlow ? t(agent ? "chat.agentHint" : "chat.planningHint") : t("chat.talkingWith", { agent: agentLabel })}</p>
+            {planFlow && (
+              <button type="button" className="chat__skip" onClick={() => { setPlanning(false); setAgent(false); }}>
                 {t("chat.skipInterview")}
               </button>
             )}
@@ -1565,7 +1589,7 @@ ${outgoing}`
           </button>
         )}
 
-        {planning && planReady && lastIsReply && !running && (
+        {planFlow && planReady && lastIsReply && !running && (
           <div className="plan-approval" role="region" aria-label={t("chat.planApprovalAria")}>
             <p className="plan-approval__context">
               {understood === null
@@ -1676,8 +1700,10 @@ ${outgoing}`
         modes={modes}
         mode={modeId}
         onMode={setModeId}
-        planning={planning}
-        onTogglePlanning={() => setPlanning((on) => !on)}
+        planning={planFlow}
+        agentMode={agent}
+        onToggleAgentMode={toggleAgent}
+        onTogglePlanning={togglePlanning}
         goalOn={goalOn || goalActive}
         goalActive={goalActive}
         onToggleGoal={toggleGoal}
