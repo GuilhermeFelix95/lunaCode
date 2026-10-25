@@ -251,7 +251,10 @@ describe("modo agente", () => {
   });
 
   it("responde direto, sem plano, quando a mensagem não pede alteração", () => {
-    expect(agentInstruction(DEFAULT_PLAN_TARGET)).toContain("responda direto, sem plano");
+    const text = agentInstruction(DEFAULT_PLAN_TARGET);
+
+    expect(text).toContain("responda direto, sem plano");
+    expect(text).toContain("Na dúvida, trate como pedido");
   });
 
   it("diz ao agente o que fazer quando a sessão não tem ferramenta de pesquisa", () => {
