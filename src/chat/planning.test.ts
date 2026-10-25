@@ -230,6 +230,15 @@ describe("aprovação pede para fechar todas as etapas", () => {
   });
 });
 
+describe("pesquisa do Planejar", () => {
+  it("o plano pesquisa a boa prática ao entender o contexto e deixa a decisão com o usuário", () => {
+    const text = planInstruction(DEFAULT_PLAN_TARGET);
+
+    expect(text).toContain("pesquise na web");
+    expect(text).toContain("A decisão final é do usuário");
+  });
+});
+
 describe("quando a resposta vira plano", () => {
   it("um agradecimento não vira plano", () => {
     expect(planFromReply({ text: "De nada!", questions: null }, true)).toBeNull();

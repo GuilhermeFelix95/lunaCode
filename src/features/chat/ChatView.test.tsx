@@ -852,6 +852,22 @@ describe("ChatView: subagente em segundo plano", () => {
   });
 });
 
+describe("ChatView: pesquisa na web do Planejar", () => {
+  it("o turno de plano libera a pesquisa na web, e a conversa comum não", async () => {
+    render(<ChatView onPersist={() => {}} />);
+    await waitFor(() => expect((screen.getByLabelText("Mensagem") as HTMLTextAreaElement).disabled).toBe(false));
+
+    await send("sem plano ainda");
+    expect(vi.mocked(api.sendPrompt).mock.calls[0][0].webSearch).toBe(false);
+    emit({ kind: "done", ok: true });
+    await waitFor(() => expect(screen.getByLabelText("Enviar")).toBeTruthy());
+
+    fireEvent.click(screen.getByLabelText("Modo de planejamento"));
+    await send("monta um plano");
+    expect(vi.mocked(api.sendPrompt).mock.calls[1][0].webSearch).toBe(true);
+  });
+});
+
 describe("ChatView: modo navegador e o plano", () => {
   it("entrar no modo navegador com o plano ligado desliga o plano sem remontar o chat", async () => {
     const view = render(<ChatView onPersist={() => {}} />);

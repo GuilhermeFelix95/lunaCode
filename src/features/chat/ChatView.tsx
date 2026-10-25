@@ -1101,6 +1101,8 @@ ${cliPrompt}`;
         effort: route.effort || undefined,
         contextWindow: route.provider === provider ? models.find((m) => m.id === route.model)?.contextWindow : undefined,
         subagents: !!orchestrator.subagent && route.provider === "claude",
+        // O Planejar pesquisa as boas práticas antes do plano; fora dele e no modo navegador, a pesquisa fica fechada.
+        webSearch: plan && !browserMode,
         longCache: longCacheEnabled(),
       }, conversationId, specDirRef.current, route.provider === provider && activeAccount ? activeAccount : undefined);
     } catch (e) {

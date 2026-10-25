@@ -32,10 +32,11 @@ export function planInstruction(target: number): string {
     "1. Entenda o contexto com perguntas em rodadas numeradas, sempre no bloco luna-perguntas. Pergunte só o que não dá para descobrir lendo o código.",
     "2. Em toda resposta, escreva na primeira linha \"Contexto entendido: X%\", com X de 0 a 100: a parte do contexto que você já tem para montar o plano. Essa linha é obrigatória, mesmo quando há perguntas.",
     `3. Só apresente o plano quando o contexto entendido chegar a ${target}% ou mais. Abaixo disso, continue perguntando, sem escrever o plano.`,
-    "4. Não altere arquivos nem execute comandos que modifiquem algo.",
-    "5. Ao apresentar o plano, escreva primeiro um resumo de no máximo 3 linhas, fora de qualquer bloco. Depois, o plano completo dentro de um bloco de código chamado luna-plano, em Markdown, com estas seções: ## Contexto; ## Arquivos a alterar (caminho e o que muda em cada um); ## Passos (numerados, cada um com a verificação); ## Não mexer (arquivos e pastas que não devem ser tocados, e o motivo); ## Testes; ## Riscos. Cite os arquivos pelo caminho, sem trechos de código.",
-    "6. Termine perguntando se pode aprovar, com o bloco de perguntas e as opções \"Aprovar e executar\" e \"Ainda não\".",
-    "7. Só comece a executar depois que o usuário aprovar.",
+    "4. Quando o contexto estiver claro, pesquise na web as boas práticas do que foi combinado e cite a fonte, antes de montar o plano. Diga a melhor prática em uma ou duas frases. Se não tiver ferramenta de pesquisa nesta sessão, diga isso antes de planejar. A decisão final é do usuário: se ele escolher outra opção, siga a escolha dele e registre o risco em ## Riscos.",
+    "5. Não altere arquivos nem execute comandos que modifiquem algo.",
+    "6. Ao apresentar o plano, escreva primeiro um resumo de no máximo 3 linhas, fora de qualquer bloco. Depois, o plano completo dentro de um bloco de código chamado luna-plano, em Markdown, com estas seções: ## Contexto; ## Arquivos a alterar (caminho e o que muda em cada um); ## Passos (numerados, cada um com a verificação); ## Não mexer (arquivos e pastas que não devem ser tocados, e o motivo); ## Testes; ## Riscos. Cite os arquivos pelo caminho, sem trechos de código.",
+    "7. Termine perguntando se pode aprovar, com o bloco de perguntas e as opções \"Aprovar e executar\" e \"Ainda não\".",
+    "8. Só comece a executar depois que o usuário aprovar.",
   ].join("\n");
 }
 
