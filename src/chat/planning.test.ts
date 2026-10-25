@@ -253,9 +253,10 @@ describe("modo agente", () => {
   it("responde direto e para, quando a mensagem não pede alteração de código", () => {
     const text = agentInstruction(DEFAULT_PLAN_TARGET);
 
-    expect(text).toContain("responda direto e pare aqui, sem plano nem os passos abaixo");
-    expect(text).toContain("há dúvida, trate como pedido");
-    expect(text).toContain("tiver agradecimento e pedido, trate como pedido");
+    expect(text).toContain("Só agradecimento ou conversa, sem pergunta nem pedido, recebe resposta direta");
+    expect(text).toContain("responda e pare aqui, sem plano nem os passos abaixo");
+    expect(text).toContain("Na dúvida, trate como pedido");
+    expect(text).toContain("inclusive pergunta e pedido de mudança em arquivo de qualquer tipo");
   });
 
   it("diz ao agente o que fazer quando a sessão não tem ferramenta de pesquisa", () => {
