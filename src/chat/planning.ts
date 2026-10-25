@@ -122,13 +122,14 @@ export function approvalInstruction(provider: ProviderKind, specDir?: string): s
 
 /// Oferta final da execução: o agente pergunta se o usuário quer as revisões, e recomenda rodá-las.
 export const REVIEW_OFFER = [
-  "Quando terminar a implementação, pergunte ao usuário se ele quer rodar /code-review e /security-review. Recomende rodar as duas, porque a execução alterou código.",
+  "Quando terminar a implementação, pergunte ao usuário se ele quer rodar /code-review e /security-review. Recomende rodar as duas. Se a execução alterou arquivos, use só esses arquivos como escopo.",
   "Faça essa pergunta somente dentro do bloco luna-perguntas, com as opções \"Rodar as revisões\" e \"Não rodar\", e \"recomendada\" igual a \"Rodar as revisões\".",
 ].join("\n");
 
 /// Aprovação com o plano aprovado dentro. Sem ele (plano não guardado), vale só a instrução.
 export function approvalPrompt(plan: string | null, provider: ProviderKind = "claude", specDir?: string): string {
-  const instruction = `${approvalInstruction(provider, specDir)}\n\n${REVIEW_OFFER}`;
+  const review = provider === "claude" ? `\n\n${REVIEW_OFFER}` : "";
+  const instruction = `${approvalInstruction(provider, specDir)}${review}`;
   if (!plan?.trim()) return instruction;
   return `${instruction}\n\nPlano aprovado, para usar como referência durante toda a execução:\n\`\`\`luna-plano\n${plan}\n\`\`\``;
 }

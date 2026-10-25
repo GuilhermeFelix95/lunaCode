@@ -211,7 +211,7 @@ export function ChatView({
   const [model, setModel] = useState(initial?.model ?? "");
   const [effort, setEffort] = useState(initial?.effort ?? "");
   // Modo plano começa desligado: só liga com o clique em Planejar.
-  const [planning, setPlanning] = useState(initial?.planning ?? false);
+  const [planning, setPlanning] = useState((initial?.planning ?? false) && !browserMode);
   // Último plano da conversa: a resposta do modo plano (ou da spec) fica no painel.
   const [plan, setPlan] = useState<string | undefined>(initial?.plan);
   // O último turno no modo plano trouxe o plano pronto, e não só uma rodada de perguntas: só então aparece o card de aprovação.
@@ -1213,7 +1213,7 @@ ${cliPrompt}`;
     // `/plugin instalar <pasta>` abre o mesmo cartão de instalação que a Luna mostra depois de criar um plugin.
     const luna = parseLunaCommand(prompt);
     if (luna?.id === "plano") {
-      setPlanning(true);
+      setPlanning(!browserMode);
       return;
     }
     if (luna?.id === "compactar") {

@@ -247,6 +247,10 @@ describe("quando a resposta vira plano", () => {
 });
 
 describe("oferta de revisão no fim da execução", () => {
+  it("só o Claude recebe a oferta de revisão: os outros motores não têm /code-review", () => {
+    expect(approvalPrompt(null, "codex")).not.toContain("/code-review");
+  });
+
   it("a execução aprovada pergunta se o usuário quer as revisões e recomenda rodá-las", () => {
     const prompt = approvalPrompt("## Passos\n- criar a tela", "claude");
 
