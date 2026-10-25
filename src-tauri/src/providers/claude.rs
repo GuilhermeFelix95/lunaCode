@@ -177,8 +177,9 @@ pub fn input(request: &RunRequest) -> Result<String, String> {
     Ok(format!("{line}\n"))
 }
 
-/// Ferramentas de pesquisa na web liberadas no modo agente (leitura pela rede, sem editar nada).
-const WEB_TOOLS: [&str; 2] = ["WebSearch", "WebFetch"];
+/// Pesquisa na web liberada no modo agente. Só `WebSearch`: ele manda a consulta ao buscador, sem abrir URLs escolhidas por páginas.
+/// `WebFetch` fica de fora de propósito, porque abre um destino definido pelo conteúdo que o modelo lê.
+const WEB_TOOLS: [&str; 1] = ["WebSearch"];
 
 fn permission_mode(permission: Permission) -> &'static str {
     match permission {
@@ -534,7 +535,8 @@ mod tests {
         let flags = args(&request_with_web_search(true));
 
         let at = flags.iter().position(|arg| arg == "--allowedTools").expect("sem --allowedTools");
-        assert_eq!(flags[at + 1..at + 3], ["WebSearch", "WebFetch"], "{flags:?}");
+        assert_eq!(flags[at + 1], "WebSearch", "{flags:?}");
+        assert!(!flags.iter().any(|arg| arg == "WebFetch"), "{flags:?}");
     }
 
     #[test]
