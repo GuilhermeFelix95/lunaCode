@@ -508,7 +508,6 @@ mod tests {
         assert_eq!(parse_line(line), vec![ProviderEvent::OutputTokens { tokens: 180 }]);
     }
 
-    /// Sem o servidor de permissões no ar, `Pedir permissão` não liga o pop-up: o modo padrão segue, sem a ferramenta.
     fn request_with_web_search(web_search: bool) -> RunRequest {
         RunRequest {
             provider: ProviderKind::Claude,
@@ -544,6 +543,7 @@ mod tests {
         assert!(!flags.iter().any(|arg| arg == "WebSearch" || arg == "WebFetch"), "{flags:?}");
     }
 
+    /// Sem o servidor de permissões no ar, `Pedir permissão` não liga o pop-up: o modo padrão segue, sem a ferramenta.
     #[test]
     fn asking_for_permission_without_the_server_sends_no_prompt_tool() {
         let request = RunRequest {

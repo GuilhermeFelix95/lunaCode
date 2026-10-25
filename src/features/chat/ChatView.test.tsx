@@ -251,6 +251,10 @@ describe("ChatView: continuidade e envio", () => {
     expect(approval.prompt).toContain("Nunca rode a suíte inteira");
     expect(approval.prompt).toContain("execute o plano agora");
     expect(screen.getByLabelText("Modo agente").getAttribute("aria-pressed")).toBe("true");
+    emit({ kind: "textDelta", text: "Feito." });
+    emit({ kind: "done", ok: true });
+    await waitFor(() => expect(screen.getByLabelText("Enviar")).toBeTruthy());
+    expect(screen.queryByRole("region", { name: "Aprovação do plano" })).toBeNull();
   });
 
   it("o modo agente libera a pesquisa na web no envio, e o Planejar não", async () => {
@@ -265,6 +269,14 @@ describe("ChatView: continuidade e envio", () => {
     fireEvent.click(screen.getByLabelText("Modo de planejamento"));
     await send("outra coisa");
     expect(vi.mocked(api.sendPrompt).mock.calls[1][0].webSearch).toBe(false);
+  });
+
+  it("no modo navegador, a pesquisa na web não é liberada mesmo com o modo agente ligado", async () => {
+    render(<ChatView browserMode onPersist={() => {}} />);
+    await waitFor(() => expect((screen.getByLabelText("Mensagem") as HTMLTextAreaElement).disabled).toBe(false));
+
+    await send("abra o site da Luna");
+    expect(vi.mocked(api.sendPrompt).mock.calls[0][0].webSearch).toBe(false);
   });
 
   it("no modo plano, responder 'Aprovar e executar' pelo seletor desliga o plano e executa", async () => {
@@ -823,6 +835,14 @@ describe("ChatView: subagente em segundo plano", () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
+  });
+
+  it("conversa salva no modo planejar, sem o campo agente, abre com Planejar ligado", async () => {
+    render(<ChatView initial={{ ...conversation, planning: true }} onPersist={() => {}} />);
+    await waitFor(() => expect((screen.getByLabelText("Mensagem") as HTMLTextAreaElement).disabled).toBe(false));
+
+    expect(screen.getByLabelText("Modo de planejamento").getAttribute("aria-pressed")).toBe("true");
+    expect(screen.getByLabelText("Modo agente").getAttribute("aria-pressed")).toBe("false");
   });
 
   it("/subagente inicia a tarefa e a conclusão vira mensagem na conversa", async () => {

@@ -148,7 +148,7 @@ export function agentInstruction(target: number): string {
     "Você está no modo agente. Siga estas etapas em ordem:",
     "1. Entenda o pedido com perguntas em rodadas numeradas, sempre no bloco luna-perguntas. Pergunte só o que não dá para descobrir lendo o código.",
     `2. Converse com o usuário no máximo ${AGENT_MAX_ROUNDS} rodadas para chegar a um consenso. Se passar disso, siga com o que foi combinado e diga o que ficou em aberto.`,
-    "3. Se o pedido altera código ou arquitetura, pesquise na web as boas práticas do que foi combinado e cite a fonte. Se a documentação oficial não responder, diga isso antes de usar outras fontes.",
+    "3. Se o pedido altera código ou arquitetura, pesquise na web as boas práticas do que foi combinado e cite a fonte. Se a documentação oficial não responder, diga isso antes de usar outras fontes. Se não tiver ferramenta de pesquisa nesta sessão, diga isso ao usuário antes de planejar, sem inventar fontes.",
     "4. Se a pesquisa mostrar que o combinado não segue boas práticas, explique o problema e volte a conversar com o usuário, sem plano, até haver consenso.",
     `5. Quando a pesquisa confirmar o combinado, escreva na primeira linha "Contexto entendido: X%" (de 0 a 100) e só então apresente o plano. Só apresente o plano quando o contexto chegar a ${target}% ou mais.`,
     "6. O plano tem um resumo de no máximo 3 linhas, fora de qualquer bloco, e depois o plano completo dentro de um bloco de código chamado luna-plano, em Markdown, com as seções: ## Contexto; ## Arquivos a alterar; ## Passos (numerados, cada um com a verificação); ## Não mexer; ## Testes; ## Riscos. Cite os arquivos pelo caminho, sem trechos de código.",

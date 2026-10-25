@@ -211,7 +211,8 @@ export function ChatView({
   const [model, setModel] = useState(initial?.model ?? "");
   const [effort, setEffort] = useState(initial?.effort ?? "");
   // Agente é o padrão: entende, pesquisa, planeja, executa e verifica. Planejar é a alternativa sem pesquisa nem verificação.
-  const [agent, setAgent] = useState(initial?.agent ?? true);
+  // Conversa salva antes do modo agente: se estava no Planejar, continua nele.
+  const [agent, setAgent] = useState(initial?.agent ?? !initial?.planning);
   const [planning, setPlanning] = useState(initial?.planning ?? false);
   // Conversa no fluxo de plano (Agente ou Planejar): perguntas, plano e aprovação são os mesmos.
   const planFlow = planning || agent;
@@ -1101,8 +1102,8 @@ ${cliPrompt}`;
         effort: route.effort || undefined,
         contextWindow: route.provider === provider ? models.find((m) => m.id === route.model)?.contextWindow : undefined,
         subagents: !!orchestrator.subagent && route.provider === "claude",
-        // O modo agente pesquisa boas práticas e corrige com pesquisa, então a pesquisa fica liberada enquanto ele estiver ligado.
-        webSearch: live.current.agent,
+        // O modo agente pesquisa boas práticas e corrige com pesquisa, então a pesquisa fica liberada enquanto ele estiver ligado (fora do modo navegador).
+        webSearch: live.current.agent && !browserMode,
         longCache: longCacheEnabled(),
       }, conversationId, specDirRef.current, route.provider === provider && activeAccount ? activeAccount : undefined);
     } catch (e) {
@@ -1363,6 +1364,7 @@ ${outgoing}`
   async function approvePlan() {
     if (running || loggedIn !== true) return;
     setPlanning(false);
+    setPlanReady(false);
     // Execução nova: a lista de progresso começa do zero, sem as etapas de um plano anterior.
     tasksRef.current = [];
     setTasks([]);
