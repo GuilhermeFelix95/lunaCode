@@ -305,3 +305,4 @@ Formato: `AAAA-MM-DD: o que foi feito` (ordem cronológica, linhas antigas nunca
 2026-10-24: Resposta direta do modo agente deixou de substituir o plano na aba Plano.
 2026-10-24: Aba Plano só recebe resposta com bloco de plano ou pedido de aprovação; agradecimento e perguntas não substituem o plano.
 2026-10-24: Modo agente removido; o Planejar continua. Ao fim da execução aprovada, o Luna pergunta se o usuário quer rodar /code-review e /security-review, com recomendação.
+2026-10-24: Planejar passou a pesquisar boas práticas na web antes do plano, com WebSearch liberado só nesses turnos.
