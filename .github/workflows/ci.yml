@@ -1,0 +1,46 @@
+# Testes e build a cada PR e a cada push na main.
+# O app é Windows (Tauri + MSVC), então o job roda no runner Windows.
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    runs-on: windows-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Instalar dependências do front
+        run: npm ci
+
+      # O build gera o dist/ que o Tauri exige na compilação do Rust.
+      - name: Checar tipos e build do front
+        run: npm run build
+
+      - name: Testes do front
+        run: npm test
+
+      - uses: dtolnay/rust-toolchain@stable
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: src-tauri
+
+      - name: Testes do Rust
+        run: cargo test --manifest-path src-tauri/Cargo.toml
