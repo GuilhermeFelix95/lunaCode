@@ -138,7 +138,7 @@ describe("ChatView: continuidade e envio", () => {
     fireEvent.click(screen.getByLabelText("Modo de planejamento"));
 
     await send("quero um app de tarefas");
-    emit({ kind: "textDelta", text: "## Plano\n\nPasso 1: criar a tela." });
+    emit({ kind: "textDelta", text: "Resumo.\n```luna-plano\n## Passos\nPasso 1: criar a tela.\n```" });
     emit({ kind: "done", ok: true });
     await waitFor(() => expect(screen.getByLabelText("Enviar")).toBeTruthy());
 

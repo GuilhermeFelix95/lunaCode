@@ -57,21 +57,23 @@ export function streamingPlan(reply: string): string | null {
   return body.replace(/\n?`{0,3}\s*$/, "").trim();
 }
 
-/// O texto que vira plano na aba Plano, ou null. Vale para a resposta sem perguntas e para a que pede aprovação
-/// (a aprovação é a última pergunta do plano). Rodadas de perguntas não viram plano.
-/// No modo agente, resposta direta (sem linha de contexto nem plano) também não vira: senão substitui o plano na aba.
-export function planFromReply(reply: { text: string; questions: Question[] | null }, planning: boolean, agent = false): string | null {
+/// A resposta pede a aprovação do plano (a aprovação é a última pergunta do plano).
+function asksApproval(reply: { questions: Question[] | null }): boolean {
+  return reply.questions?.some((q) => q.options.includes(APPROVE_OPTION)) ?? false;
+}
+
+/// O texto que vira plano na aba Plano, ou null. Só vira plano a resposta com o bloco `luna-plano` ou que pede a aprovação.
+/// Rodada de perguntas e conversa (ex.: um agradecimento) não viram plano: senão apagam o plano que está na aba.
+export function planFromReply(reply: { text: string; questions: Question[] | null }, planning: boolean): string | null {
   if (!planning || !reply.text.trim()) return null;
-  const asksApproval = reply.questions?.some((q) => q.options.includes(APPROVE_OPTION)) ?? false;
-  if (reply.questions && !asksApproval) return null;
-  if (agent && !asksApproval && contextUnderstood(reply.text) === null && !extractPlan(reply.text)) return null;
-  return reply.text;
+  if (asksApproval(reply)) return reply.text;
+  if (reply.questions) return null;
+  return extractPlan(reply.text) ? reply.text : null;
 }
 
 /// O plano está pronto quando a resposta traz o bloco `luna-plano` ou pede a aprovação. Rodada de perguntas não está pronta.
 export function planIsReady(reply: { text: string; questions: Question[] | null }): boolean {
-  if (extractPlan(reply.text)) return true;
-  return reply.questions?.some((q) => q.options.includes(APPROVE_OPTION)) ?? false;
+  return extractPlan(reply.text) !== null || asksApproval(reply);
 }
 
 /// Lê "Contexto entendido: X%" da resposta. Sem a linha, devolve null.

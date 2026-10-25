@@ -861,7 +861,7 @@ export function ChatView({
           }
         }
         if (turnPlanning.current) setPlanReady(planIsReady(parsed));
-        const draft = planParts?.plan ?? planFromReply(parsed, turnPlanning.current, live.current.agent);
+        const draft = planParts?.plan ?? planFromReply(parsed, turnPlanning.current);
         if (draft) {
           planRef.current = draft;
           setPlan(draft);

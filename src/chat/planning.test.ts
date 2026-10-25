@@ -278,19 +278,19 @@ describe("modo agente", () => {
   });
 });
 
-describe("resposta direta no modo agente", () => {
-  it("um agradecimento não vira plano, mesmo com o modo agente ligado", () => {
-    expect(planFromReply({ text: "De nada!", questions: null }, true, true)).toBeNull();
+describe("quando a resposta vira plano", () => {
+  it("um agradecimento não vira plano", () => {
+    expect(planFromReply({ text: "De nada!", questions: null }, true)).toBeNull();
   });
 
-  it("uma resposta com a linha de contexto entendido vira plano", () => {
-    const reply = { text: "Contexto entendido: 90%\nPlano pronto.", questions: null };
-
-    expect(planFromReply(reply, true, true)).toBe(reply.text);
+  it("uma resposta sem o bloco de plano não vira plano, mesmo com contexto entendido", () => {
+    expect(planFromReply({ text: "Contexto entendido: 40%\nAinda falta o banco.", questions: null }, true)).toBeNull();
   });
 
-  it("sem o modo agente, o plano continua sendo qualquer resposta sem perguntas", () => {
-    expect(planFromReply({ text: "## Plano\n\nPasso 1.", questions: null }, true)).toBe("## Plano\n\nPasso 1.");
+  it("a resposta com o bloco de plano vira plano", () => {
+    const reply = { text: "Resumo.\n```luna-plano\n## Passos\n- criar a tela\n```", questions: null };
+
+    expect(planFromReply(reply, true)).toBe(reply.text);
   });
 });
 
