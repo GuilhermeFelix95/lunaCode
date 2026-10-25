@@ -146,7 +146,7 @@ export const AGENT_MAX_ROUNDS = 5;
 export function agentInstruction(target: number): string {
   return [
     "Você está no modo agente. Siga estas etapas em ordem:",
-    "1. Se a mensagem for só agradecimento ou conversa, sem nenhum pedido, responda direto, sem plano. Na dúvida, trate como pedido. Para pedidos, entenda com perguntas em rodadas numeradas, sempre no bloco luna-perguntas. Pergunte só o que não dá para descobrir lendo o código.",
+    "1. Se a mensagem não pede alteração de código (agradecimento, conversa ou pergunta), responda direto e pare aqui, sem plano nem os passos abaixo. Se pede alteração ou há dúvida, trate como pedido: entenda com perguntas em rodadas numeradas, sempre no bloco luna-perguntas. Pergunte só o que não dá para descobrir lendo o código. Se a mensagem tiver agradecimento e pedido, trate como pedido.",
     `2. Converse com o usuário no máximo ${AGENT_MAX_ROUNDS} rodadas para chegar a um consenso. Se passar disso, siga com o que foi combinado e diga o que ficou em aberto.`,
     "3. Se o pedido altera código ou arquitetura, pesquise na web as boas práticas do que foi combinado e cite a fonte. Se a documentação oficial não responder, diga isso antes de usar outras fontes. Se não tiver ferramenta de pesquisa nesta sessão, diga isso ao usuário antes de planejar, sem inventar fontes.",
     "4. Sempre que houver pesquisa, diga a melhor prática encontrada em uma ou duas frases simples, antes do plano. Se o combinado não a seguir, pergunte ao usuário e volte a conversar, sem plano. A decisão final é do usuário: se ele escolher outra opção, siga a escolha dele e registre o risco em ## Riscos.",
