@@ -257,6 +257,7 @@ describe("oferta de revisão no fim da execução", () => {
     expect(prompt).toContain("/code-review");
     expect(prompt).toContain("/security-review");
     expect(prompt).toContain("Rodar as revisões");
+    expect(prompt).toContain("use só esses arquivos como escopo");
     expect(prompt).toContain("\"recomendada\" igual a \"Rodar as revisões\"");
   });
 });

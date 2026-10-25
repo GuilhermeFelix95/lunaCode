@@ -852,6 +852,19 @@ describe("ChatView: subagente em segundo plano", () => {
   });
 });
 
+describe("ChatView: modo navegador e o plano", () => {
+  it("entrar no modo navegador com o plano ligado desliga o plano sem remontar o chat", async () => {
+    const view = render(<ChatView onPersist={() => {}} />);
+    await waitFor(() => expect((screen.getByLabelText("Mensagem") as HTMLTextAreaElement).disabled).toBe(false));
+    fireEvent.click(screen.getByLabelText("Modo de planejamento"));
+    expect(screen.getByLabelText("Modo de planejamento").getAttribute("aria-pressed")).toBe("true");
+
+    view.rerender(<ChatView browserMode onPersist={() => {}} />);
+
+    await waitFor(() => expect(screen.queryByText(/Modo de planejamento/)).toBeNull());
+  });
+});
+
 describe("ChatView: modo navegador", () => {
   beforeEach(() => {
     vi.clearAllMocks();

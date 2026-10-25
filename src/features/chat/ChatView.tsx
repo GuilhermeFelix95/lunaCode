@@ -212,6 +212,10 @@ export function ChatView({
   const [effort, setEffort] = useState(initial?.effort ?? "");
   // Modo plano começa desligado: só liga com o clique em Planejar.
   const [planning, setPlanning] = useState((initial?.planning ?? false) && !browserMode);
+  // Modo navegador desliga o plano mesmo com o chat já montado.
+  useEffect(() => {
+    if (browserMode) setPlanning(false);
+  }, [browserMode]);
   // Último plano da conversa: a resposta do modo plano (ou da spec) fica no painel.
   const [plan, setPlan] = useState<string | undefined>(initial?.plan);
   // O último turno no modo plano trouxe o plano pronto, e não só uma rodada de perguntas: só então aparece o card de aprovação.
