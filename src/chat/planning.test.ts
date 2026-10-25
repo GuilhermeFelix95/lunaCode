@@ -1,5 +1,7 @@
 import { afterEach, describe, expect, it } from "vitest";
 import {
+  AGENT_MAX_ROUNDS,
+  agentInstruction,
   APPROVAL_PROMPT,
   approvalPrompt,
   contextUnderstood,
@@ -13,6 +15,9 @@ import {
   QUESTION_PROTOCOL,
   savePlanTarget,
   streamingPlan,
+  agentVerifyInstruction,
+  withAgentInstruction,
+  withAgentVerification,
   withPlanInstruction,
 } from "./planning";
 
@@ -226,5 +231,76 @@ describe("aprovação pede para fechar todas as etapas", () => {
     for (const provider of ["copilot", "antigravity"] as const) {
       expect(approvalPrompt(null, provider)).not.toMatch(/marque todas as etapas/);
     }
+  });
+});
+
+describe("modo agente", () => {
+  it("a instrução cobre pesquisa na web, consenso com limite e o plano", () => {
+    const text = agentInstruction(DEFAULT_PLAN_TARGET);
+
+    expect(text).toContain("pesquise na web");
+    expect(text).toContain(`no máximo ${AGENT_MAX_ROUNDS} rodadas`);
+    expect(text).toContain("Contexto entendido");
+  });
+
+  it("pede a melhor prática em uma ou duas frases e deixa a decisão final com o usuário", () => {
+    const text = agentInstruction(DEFAULT_PLAN_TARGET);
+
+    expect(text).toContain("melhor prática");
+    expect(text).toContain("A decisão final é do usuário");
+  });
+
+  it("responde direto e para, quando a mensagem é só agradecimento ou conversa", () => {
+    const text = agentInstruction(DEFAULT_PLAN_TARGET);
+
+    expect(text).toContain("Só agradecimento ou conversa, sem pergunta nem pedido, recebe resposta direta");
+    expect(text).toContain("responda e pare aqui, sem plano nem os passos abaixo");
+    expect(text).toContain("Na dúvida, trate como pedido");
+    expect(text).toContain("inclusive pergunta e pedido de mudança em arquivo de qualquer tipo");
+  });
+
+  it("diz ao agente o que fazer quando a sessão não tem ferramenta de pesquisa", () => {
+    expect(agentInstruction(DEFAULT_PLAN_TARGET)).toContain("não tiver ferramenta de pesquisa");
+  });
+
+  it("o turno de planejamento não traz a verificação, que só vale depois da execução", () => {
+    const text = agentInstruction(DEFAULT_PLAN_TARGET);
+
+    expect(text).not.toContain("/code-review");
+    expect(text).not.toContain("Nunca rode a suíte inteira");
+  });
+
+  it("mantém o pedido do usuário depois da instrução do agente", () => {
+    const prompt = withAgentInstruction("crie um login");
+
+    expect(prompt.startsWith(agentInstruction(DEFAULT_PLAN_TARGET))).toBe(true);
+    expect(prompt.endsWith("crie um login")).toBe(true);
+  });
+});
+
+describe("quando a resposta vira plano", () => {
+  it("um agradecimento não vira plano", () => {
+    expect(planFromReply({ text: "De nada!", questions: null }, true)).toBeNull();
+  });
+
+  it("uma resposta sem o bloco de plano não vira plano, mesmo com contexto entendido", () => {
+    expect(planFromReply({ text: "Contexto entendido: 40%\nAinda falta o banco.", questions: null }, true)).toBeNull();
+  });
+
+  it("a resposta com o bloco de plano vira plano", () => {
+    const reply = { text: "Resumo.\n```luna-plano\n## Passos\n- criar a tela\n```", questions: null };
+
+    expect(planFromReply(reply, true)).toBe(reply.text);
+  });
+});
+
+describe("verificação do modo agente", () => {
+  it("a execução aprovada leva a verificação antes do pedido", () => {
+    const prompt = withAgentVerification("execute o plano agora");
+
+    expect(prompt.startsWith(agentVerifyInstruction())).toBe(true);
+    expect(prompt.endsWith("execute o plano agora")).toBe(true);
+    expect(agentVerifyInstruction()).toContain("Nunca rode a suíte inteira");
+    expect(agentVerifyInstruction()).toContain("somente se o turno alterou arquivos");
   });
 });

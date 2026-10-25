@@ -140,6 +140,7 @@ mod tests {
             context_window: None,
             browser: Default::default(),
             browser_mode: false,
+            web_search: false,
             subagents: false,
             long_cache: false,
             images: Vec::new(),

@@ -24,6 +24,8 @@ export interface RunRequest {
   browserMode?: boolean;
   /** Etapas delegadas ao subagente do orquestrador (só o Claude). Ausente = sem subagente. */
   subagents?: boolean;
+  /** Modo agente: pesquisa na web (só WebSearch) sem pedido a cada uso. Ausente = não. */
+  webSearch?: boolean;
   /** Modelo da lista da CLI. Ausente = padrão da CLI. */
   model?: string;
   /** Nível de esforço com o nome da CLI. Ausente = padrão. */
@@ -247,6 +249,8 @@ export interface Conversation {
   model?: string;
   effort?: string;
   planning: boolean;
+  /** Modo agente (padrão). Ausente em conversas antigas = ligado. */
+  agent?: boolean;
   /** Perfil de API da conversa. Ausente = login da CLI. */
   profile?: string;
   /** Custo acumulado em dólares, quando o uso é por API. */
