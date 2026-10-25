@@ -303,3 +303,4 @@ Formato: `AAAA-MM-DD: o que foi feito` (ordem cronológica, linhas antigas nunca
 2026-10-24: Modo agente corrigido após revisão: pesquisa só com WebSearch, modo navegador fora do plano, instrução responde direto quando não há pedido.
 2026-10-24: Modo agente revisado e corrigido antes da publicação.
 2026-10-24: Resposta direta do modo agente deixou de substituir o plano na aba Plano.
+2026-10-24: Aba Plano só recebe resposta com bloco de plano ou pedido de aprovação; agradecimento e perguntas não substituem o plano.
