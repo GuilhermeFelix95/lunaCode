@@ -64,9 +64,6 @@ interface ComposerProps {
   effort: string;
   onEffort: (effort: string) => void;
   planning: boolean;
-  /** Modo agente (padrão): entende, pesquisa, planeja, executa e verifica. */
-  agentMode: boolean;
-  onToggleAgentMode: () => void;
   /** Modo navegador: só conversa, então não mostra permissão nem as ações que começam edições (Planejar e /meta). */
   browserMode?: boolean;
   onTogglePlanning: () => void;
@@ -352,18 +349,8 @@ export function Composer(props: ComposerProps) {
               <button
                 type="button"
                 className="composer__plan"
-                aria-label={t("composer.agentAria")}
-                aria-pressed={props.agentMode}
-                disabled={running}
-                onClick={props.onToggleAgentMode}
-              >
-                {t("composer.agent")}
-              </button>
-              <button
-                type="button"
-                className="composer__plan"
                 aria-label={t("composer.planningAria")}
-                aria-pressed={props.planning && !props.agentMode}
+                aria-pressed={props.planning}
                 disabled={running}
                 onClick={props.onTogglePlanning}
               >

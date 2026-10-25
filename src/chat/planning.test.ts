@@ -1,7 +1,5 @@
 import { afterEach, describe, expect, it } from "vitest";
 import {
-  AGENT_MAX_ROUNDS,
-  agentInstruction,
   APPROVAL_PROMPT,
   approvalPrompt,
   contextUnderstood,
@@ -12,12 +10,10 @@ import {
   planFromReply,
   planInstruction,
   planIsReady,
+  REVIEW_OFFER,
   QUESTION_PROTOCOL,
   savePlanTarget,
   streamingPlan,
-  agentVerifyInstruction,
-  withAgentInstruction,
-  withAgentVerification,
   withPlanInstruction,
 } from "./planning";
 
@@ -111,8 +107,8 @@ describe("modo plano", () => {
   });
 
   it("sem plano guardado, a aprovação sai só com a instrução", () => {
-    expect(approvalPrompt(null)).toBe(APPROVAL_PROMPT);
-    expect(approvalPrompt("  ")).toBe(APPROVAL_PROMPT);
+    expect(approvalPrompt(null)).toBe(`${APPROVAL_PROMPT}\n\n${REVIEW_OFFER}`);
+    expect(approvalPrompt("  ")).toBe(`${APPROVAL_PROMPT}\n\n${REVIEW_OFFER}`);
   });
 
   it("a spec sai no modelo to-spec, em spec/, com as seções na ordem", () => {
@@ -212,7 +208,7 @@ describe("aprovação com pasta de spec", () => {
   });
 
   it("sem pasta, o texto continua o de sempre", () => {
-    expect(approvalPrompt(null, "claude")).toBe(APPROVAL_PROMPT);
+    expect(approvalPrompt(null, "claude")).toBe(`${APPROVAL_PROMPT}\n\n${REVIEW_OFFER}`);
   });
 });
 
@@ -234,50 +230,6 @@ describe("aprovação pede para fechar todas as etapas", () => {
   });
 });
 
-describe("modo agente", () => {
-  it("a instrução cobre pesquisa na web, consenso com limite e o plano", () => {
-    const text = agentInstruction(DEFAULT_PLAN_TARGET);
-
-    expect(text).toContain("pesquise na web");
-    expect(text).toContain(`no máximo ${AGENT_MAX_ROUNDS} rodadas`);
-    expect(text).toContain("Contexto entendido");
-  });
-
-  it("pede a melhor prática em uma ou duas frases e deixa a decisão final com o usuário", () => {
-    const text = agentInstruction(DEFAULT_PLAN_TARGET);
-
-    expect(text).toContain("melhor prática");
-    expect(text).toContain("A decisão final é do usuário");
-  });
-
-  it("responde direto e para, quando a mensagem é só agradecimento ou conversa", () => {
-    const text = agentInstruction(DEFAULT_PLAN_TARGET);
-
-    expect(text).toContain("Só agradecimento ou conversa, sem pergunta nem pedido, recebe resposta direta");
-    expect(text).toContain("responda e pare aqui, sem plano nem os passos abaixo");
-    expect(text).toContain("Na dúvida, trate como pedido");
-    expect(text).toContain("inclusive pergunta e pedido de mudança em arquivo de qualquer tipo");
-  });
-
-  it("diz ao agente o que fazer quando a sessão não tem ferramenta de pesquisa", () => {
-    expect(agentInstruction(DEFAULT_PLAN_TARGET)).toContain("não tiver ferramenta de pesquisa");
-  });
-
-  it("o turno de planejamento não traz a verificação, que só vale depois da execução", () => {
-    const text = agentInstruction(DEFAULT_PLAN_TARGET);
-
-    expect(text).not.toContain("/code-review");
-    expect(text).not.toContain("Nunca rode a suíte inteira");
-  });
-
-  it("mantém o pedido do usuário depois da instrução do agente", () => {
-    const prompt = withAgentInstruction("crie um login");
-
-    expect(prompt.startsWith(agentInstruction(DEFAULT_PLAN_TARGET))).toBe(true);
-    expect(prompt.endsWith("crie um login")).toBe(true);
-  });
-});
-
 describe("quando a resposta vira plano", () => {
   it("um agradecimento não vira plano", () => {
     expect(planFromReply({ text: "De nada!", questions: null }, true)).toBeNull();
@@ -294,13 +246,18 @@ describe("quando a resposta vira plano", () => {
   });
 });
 
-describe("verificação do modo agente", () => {
-  it("a execução aprovada leva a verificação antes do pedido", () => {
-    const prompt = withAgentVerification("execute o plano agora");
+describe("oferta de revisão no fim da execução", () => {
+  it("só o Claude recebe a oferta de revisão: os outros motores não têm /code-review", () => {
+    expect(approvalPrompt(null, "codex")).not.toContain("/code-review");
+  });
 
-    expect(prompt.startsWith(agentVerifyInstruction())).toBe(true);
-    expect(prompt.endsWith("execute o plano agora")).toBe(true);
-    expect(agentVerifyInstruction()).toContain("Nunca rode a suíte inteira");
-    expect(agentVerifyInstruction()).toContain("somente se o turno alterou arquivos");
+  it("a execução aprovada pergunta se o usuário quer as revisões e recomenda rodá-las", () => {
+    const prompt = approvalPrompt("## Passos\n- criar a tela", "claude");
+
+    expect(prompt).toContain("/code-review");
+    expect(prompt).toContain("/security-review");
+    expect(prompt).toContain("Rodar as revisões");
+    expect(prompt).toContain("use só esses arquivos como escopo");
+    expect(prompt).toContain("\"recomendada\" igual a \"Rodar as revisões\"");
   });
 });
