@@ -39,7 +39,8 @@ pub fn start(app_data: &Path) -> Result<(), String> {
     let text = serde_json::to_string_pretty(&claude_config()).map_err(|e| e.to_string())?;
     std::fs::write(&path, text).map_err(|e| format!("não foi possível gravar {}: {e}", path.display()))?;
     let _ = CONFIG.set(path);
-    Ok(())
+    // O agente recebe o Playwright por execução (`mcp_config`); o registro global só gastaria tokens em toda sessão.
+    crate::mcp::desligar_global_no_inicio(app_data, "playwright")
 }
 
 /// Arquivo de configuração do Claude, se o app conseguiu gravá-lo.

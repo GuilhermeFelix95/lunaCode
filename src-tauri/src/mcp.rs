@@ -505,6 +505,16 @@ pub fn set_enabled_in(home: &Path, app_dir: &Path, name: &str, enabled: bool) ->
     write_disabled(app_dir, &disabled)
 }
 
+/// Tira o servidor do registro global do Claude ao iniciar o Luna. Por execução, o Luna já injeta o navegador
+/// escolhido quando ele está em uso (ver `providers::claude`); o registro global só gastaria tokens em toda sessão.
+pub fn desligar_global_no_inicio(app_dir: &Path, name: &str) -> Result<(), String> {
+    desligar_global_no_inicio_in(&home()?, app_dir, name)
+}
+
+fn desligar_global_no_inicio_in(home: &Path, app_dir: &Path, name: &str) -> Result<(), String> {
+    set_enabled_in(home, app_dir, name, false)
+}
+
 /// Exclui de vez: tira dos arquivos e dos desligados.
 pub fn remove_in(home: &Path, app_dir: &Path, name: &str) -> Result<(), String> {
     if !valid_name(name) {
@@ -953,5 +963,32 @@ mod tests {
     #[test]
     fn catalogo_oficial_passa_na_validacao() {
         assert!(official().is_ok());
+    }
+
+    #[test]
+    fn servidor_ativo_some_do_claude_ao_ser_mantido_desligado() {
+        let home = temp("keep-off");
+        let app = temp("keep-off-app");
+        save_in(&home, &app, &stdio("playwright")).unwrap();
+
+        desligar_global_no_inicio_in(&home, &app, "playwright").unwrap();
+
+        let claude = read_claude(&home).unwrap();
+        assert!(claude
+            .get("mcpServers")
+            .and_then(|servers| servers.get("playwright"))
+            .is_none());
+        assert!(read_disabled(&app).unwrap().contains_key("playwright"));
+    }
+
+    #[test]
+    fn manter_desligado_sem_servidor_registrado_nao_cria_nada() {
+        let home = temp("keep-off-empty");
+        let app = temp("keep-off-empty-app");
+
+        desligar_global_no_inicio_in(&home, &app, "playwright").unwrap();
+
+        assert!(!home.join(".claude.json").exists());
+        assert!(read_disabled(&app).unwrap().is_empty());
     }
 }
