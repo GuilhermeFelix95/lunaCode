@@ -24,7 +24,7 @@ export interface RunRequest {
   browserMode?: boolean;
   /** Etapas delegadas ao subagente do orquestrador (só o Claude). Ausente = sem subagente. */
   subagents?: boolean;
-  /** Modo agente: pesquisa na web (WebSearch e WebFetch) sem pedido a cada uso. Ausente = não. */
+  /** Modo agente: pesquisa na web (só WebSearch) sem pedido a cada uso. Ausente = não. */
   webSearch?: boolean;
   /** Modelo da lista da CLI. Ausente = padrão da CLI. */
   model?: string;
