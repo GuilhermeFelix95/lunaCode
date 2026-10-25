@@ -69,7 +69,7 @@ pub fn args(request: &RunRequest) -> Vec<String> {
         mcp_configs.push(config.display().to_string());
         allowed_tools.push(allowed.to_string());
     }
-    // Modo agente: a pesquisa na web sai sem pedido a cada uso. Um só `--allowedTools`, que aceita vários valores.
+    // Planejar: a pesquisa na web sai sem pedido a cada uso. Um só `--allowedTools`, que aceita vários valores.
     // O modo navegador não tem pesquisa: a regra fica aqui, e não só no cliente.
     if request.web_search && !request.browser_mode {
         allowed_tools.extend(WEB_TOOLS.iter().map(|tool| tool.to_string()));
@@ -177,7 +177,7 @@ pub fn input(request: &RunRequest) -> Result<String, String> {
     Ok(format!("{line}\n"))
 }
 
-/// Pesquisa na web liberada no modo agente. Só `WebSearch`: ele manda a consulta ao buscador, sem abrir URLs escolhidas por páginas.
+/// Pesquisa na web liberada no Planejar. Só `WebSearch`: ele manda a consulta ao buscador, sem abrir URLs escolhidas por páginas.
 /// `WebFetch` fica de fora de propósito, porque abre um destino definido pelo conteúdo que o modelo lê.
 const WEB_TOOLS: [&str; 1] = ["WebSearch"];
 
@@ -531,7 +531,7 @@ mod tests {
     }
 
     #[test]
-    fn modo_agente_libera_pesquisa_na_web_no_allowed_tools() {
+    fn plano_libera_pesquisa_na_web_no_allowed_tools() {
         let flags = args(&request_with_web_search(true));
 
         let at = flags.iter().position(|arg| arg == "--allowedTools").expect("sem --allowedTools");
@@ -550,7 +550,7 @@ mod tests {
     }
 
     #[test]
-    fn sem_modo_agente_nao_libera_pesquisa_na_web() {
+    fn sem_plano_nao_libera_pesquisa_na_web() {
         let flags = args(&request_with_web_search(false));
 
         assert!(!flags.iter().any(|arg| arg == "WebSearch" || arg == "WebFetch"), "{flags:?}");
