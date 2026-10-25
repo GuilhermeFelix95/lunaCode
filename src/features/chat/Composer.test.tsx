@@ -48,8 +48,6 @@ function setup(overrides: Partial<Parameters<typeof Composer>[0]> & { draft?: st
     onEffort: vi.fn(),
     planning: false,
     onTogglePlanning: vi.fn(),
-    agentMode: false,
-    onToggleAgentMode: vi.fn(),
     modes: [] as { id: string; label: string; description: string; instruction: string; permission: "readOnly" }[],
     mode: "",
     onMode: vi.fn(),
@@ -193,15 +191,6 @@ describe("Composer", () => {
     expect(props.onTogglePlanning).toHaveBeenCalledOnce();
   });
 
-  it("o botão Agente vem ligado no modo agente, e Planejar fica desligado nele", () => {
-    const props = setup({ agentMode: true, planning: true });
-    const agent = screen.getByLabelText("Modo agente");
-
-    expect(agent.getAttribute("aria-pressed")).toBe("true");
-    expect(screen.getByLabelText("Modo de planejamento").getAttribute("aria-pressed")).toBe("false");
-    fireEvent.click(agent);
-    expect(props.onToggleAgentMode).toHaveBeenCalledOnce();
-  });
 });
 
 describe("Composer: modos de plugin", () => {

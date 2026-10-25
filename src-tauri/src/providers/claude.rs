@@ -64,19 +64,9 @@ pub fn args(request: &RunRequest) -> Vec<String> {
     };
     let browser_config = browser_server(super::browser_in_use(request), request.browser, server);
     // Um só `--mcp-config` com todas as configurações: um segundo flag poderia substituir o primeiro.
-    let mut allowed_tools: Vec<String> = Vec::new();
     if let Some((config, allowed)) = browser_config {
         mcp_configs.push(config.display().to_string());
-        allowed_tools.push(allowed.to_string());
-    }
-    // Modo agente: a pesquisa na web sai sem pedido a cada uso. Um só `--allowedTools`, que aceita vários valores.
-    // O modo navegador não tem pesquisa: a regra fica aqui, e não só no cliente.
-    if request.web_search && !request.browser_mode {
-        allowed_tools.extend(WEB_TOOLS.iter().map(|tool| tool.to_string()));
-    }
-    if !allowed_tools.is_empty() {
-        args.push("--allowedTools".to_string());
-        args.extend(allowed_tools);
+        args.extend(["--allowedTools".to_string(), allowed.to_string()]);
     }
     if !mcp_configs.is_empty() {
         args.push("--mcp-config".to_string());
@@ -128,7 +118,6 @@ pub fn background_request(
         permission,
         browser: Default::default(),
         browser_mode: false,
-        web_search: false,
         subagents: false,
         model,
         effort: None,
@@ -176,10 +165,6 @@ pub fn input(request: &RunRequest) -> Result<String, String> {
     let line = json!({ "type": "user", "message": { "role": "user", "content": content } });
     Ok(format!("{line}\n"))
 }
-
-/// Pesquisa na web liberada no modo agente. Só `WebSearch`: ele manda a consulta ao buscador, sem abrir URLs escolhidas por páginas.
-/// `WebFetch` fica de fora de propósito, porque abre um destino definido pelo conteúdo que o modelo lê.
-const WEB_TOOLS: [&str; 1] = ["WebSearch"];
 
 fn permission_mode(permission: Permission) -> &'static str {
     match permission {
@@ -510,52 +495,6 @@ mod tests {
         assert_eq!(parse_line(line), vec![ProviderEvent::OutputTokens { tokens: 180 }]);
     }
 
-    fn request_with_web_search(web_search: bool) -> RunRequest {
-        RunRequest {
-            provider: ProviderKind::Claude,
-            prompt: "x".into(),
-            session_id: None,
-            cwd: std::path::PathBuf::from("C:\\projeto"),
-            permission: Permission::AcceptEdits,
-            model: None,
-            effort: None,
-            profile: None,
-            context_window: None,
-            browser: Default::default(),
-            browser_mode: false,
-            web_search,
-            subagents: false,
-            long_cache: false,
-            images: Vec::new(),
-        }
-    }
-
-    #[test]
-    fn modo_agente_libera_pesquisa_na_web_no_allowed_tools() {
-        let flags = args(&request_with_web_search(true));
-
-        let at = flags.iter().position(|arg| arg == "--allowedTools").expect("sem --allowedTools");
-        assert_eq!(flags[at + 1], "WebSearch", "{flags:?}");
-        assert!(!flags.iter().any(|arg| arg == "WebFetch"), "{flags:?}");
-    }
-
-    #[test]
-    fn modo_navegador_nao_libera_pesquisa_na_web_mesmo_com_o_campo() {
-        let mut request = request_with_web_search(true);
-        request.browser_mode = true;
-
-        let flags = args(&request);
-
-        assert!(!flags.iter().any(|arg| arg == "WebSearch" || arg == "WebFetch"), "{flags:?}");
-    }
-
-    #[test]
-    fn sem_modo_agente_nao_libera_pesquisa_na_web() {
-        let flags = args(&request_with_web_search(false));
-
-        assert!(!flags.iter().any(|arg| arg == "WebSearch" || arg == "WebFetch"), "{flags:?}");
-    }
-
     /// Sem o servidor de permissões no ar, `Pedir permissão` não liga o pop-up: o modo padrão segue, sem a ferramenta.
     #[test]
     fn asking_for_permission_without_the_server_sends_no_prompt_tool() {
@@ -571,7 +510,6 @@ mod tests {
             context_window: None,
             browser: Default::default(),
             browser_mode: false,
-            web_search: false,
             subagents: false,
             long_cache: false,
             images: Vec::new(),
@@ -596,7 +534,6 @@ mod tests {
             context_window: None,
             browser: Default::default(),
             browser_mode: false,
-            web_search: false,
             subagents: false,
             long_cache: false,
             images: Vec::new(),
@@ -622,7 +559,6 @@ mod tests {
             context_window: None,
             browser: Default::default(),
             browser_mode: true,
-            web_search: false,
             subagents: false,
             long_cache: false,
             images: Vec::new(),
@@ -760,7 +696,6 @@ mod tests {
             context_window: None,
             browser: Default::default(),
             browser_mode: false,
-            web_search: false,
             subagents: false,
             long_cache: false,
             images: vec![],
@@ -875,7 +810,6 @@ mod tests {
             context_window: None,
             browser: Default::default(),
             browser_mode: false,
-            web_search: false,
             subagents: false,
             long_cache: false,
             images: vec![path.clone()],
@@ -909,7 +843,6 @@ mod tests {
             context_window: None,
             browser: Default::default(),
             browser_mode: false,
-            web_search: false,
             subagents: false,
             long_cache: false,
             images: Vec::new(),

@@ -119,17 +119,17 @@ describe("ChatView: continuidade e envio", () => {
     expect(await screen.findByText("Haiku 5.5")).toBeTruthy();
   });
 
-  it("conversa nova começa no modo agente, e Planejar troca o modo", async () => {
+  it("conversa nova começa com o modo plano desligado, e só liga com o clique", async () => {
     render(<ChatView onPersist={() => {}} />);
     await waitFor(() => expect((screen.getByLabelText("Mensagem") as HTMLTextAreaElement).disabled).toBe(false));
 
-    expect(screen.getByLabelText("Modo agente").getAttribute("aria-pressed")).toBe("true");
     expect(screen.getByLabelText("Modo de planejamento").getAttribute("aria-pressed")).toBe("false");
+    expect(screen.queryByText(/Modo de planejamento/)).toBeNull();
 
     fireEvent.click(screen.getByLabelText("Modo de planejamento"));
 
     expect(screen.getByLabelText("Modo de planejamento").getAttribute("aria-pressed")).toBe("true");
-    expect(screen.getByLabelText("Modo agente").getAttribute("aria-pressed")).toBe("false");
+    expect(await screen.findByText(/Modo de planejamento/)).toBeTruthy();
   });
 
   it("no modo plano, a resposta vai para a aba Plano do painel e abre a aba", async () => {
@@ -233,55 +233,6 @@ describe("ChatView: continuidade e envio", () => {
     expect(await screen.findByRole("region", { name: "Aprovação do plano" })).toBeTruthy();
   });
 
-  it("no modo agente, a execução aprovada leva a verificação e o agente continua ligado", async () => {
-    render(<ChatView onPersist={() => {}} />);
-    await waitFor(() => expect((screen.getByLabelText("Mensagem") as HTMLTextAreaElement).disabled).toBe(false));
-
-    await send("quero um app de tarefas");
-    emit({
-      kind: "textDelta",
-      text: 'Resumo: criar a tela de tarefas.\n```luna-plano\n## Arquivos a alterar\n- src/App.tsx: monta a tela\n```',
-    });
-    emit({ kind: "done", ok: true });
-    const bar = within(await screen.findByRole("region", { name: "Aprovação do plano" }));
-    fireEvent.click(bar.getByRole("button", { name: "Aprovar e executar" }));
-
-    await waitFor(() => expect(vi.mocked(api.sendPrompt)).toHaveBeenCalledTimes(2));
-    const approval = vi.mocked(api.sendPrompt).mock.calls[1][0];
-    expect(approval.prompt).toContain("Nunca rode a suíte inteira");
-    expect(approval.prompt).toContain("execute o plano agora");
-    expect(screen.getByLabelText("Modo agente").getAttribute("aria-pressed")).toBe("true");
-    emit({ kind: "textDelta", text: "Feito." });
-    emit({ kind: "done", ok: true });
-    await waitFor(() => expect(screen.getByLabelText("Enviar")).toBeTruthy());
-    expect(screen.queryByRole("region", { name: "Aprovação do plano" })).toBeNull();
-  });
-
-  it("o modo agente libera a pesquisa na web no envio, e o Planejar não", async () => {
-    render(<ChatView onPersist={() => {}} />);
-    await waitFor(() => expect((screen.getByLabelText("Mensagem") as HTMLTextAreaElement).disabled).toBe(false));
-
-    await send("pesquise boas práticas de login");
-    expect(vi.mocked(api.sendPrompt).mock.calls[0][0].webSearch).toBe(true);
-    emit({ kind: "done", ok: true });
-    await waitFor(() => expect(screen.getByLabelText("Enviar")).toBeTruthy());
-
-    fireEvent.click(screen.getByLabelText("Modo de planejamento"));
-    await send("outra coisa");
-    expect(vi.mocked(api.sendPrompt).mock.calls[1][0].webSearch).toBe(false);
-  });
-
-  it("no modo navegador, a pesquisa na web não é liberada mesmo com o modo agente ligado", async () => {
-    render(<ChatView browserMode onPersist={() => {}} />);
-    await waitFor(() => expect((screen.getByLabelText("Mensagem") as HTMLTextAreaElement).disabled).toBe(false));
-
-    await send("abra o site da Luna");
-    const request = vi.mocked(api.sendPrompt).mock.calls[0][0];
-    expect(request.webSearch).toBe(false);
-    expect(request.permission).not.toBe("readOnly");
-    expect(request.prompt).not.toContain("Você está no modo agente");
-  });
-
   it("no modo plano, responder 'Aprovar e executar' pelo seletor desliga o plano e executa", async () => {
     render(<ChatView onPersist={() => {}} />);
     await waitFor(() => expect((screen.getByLabelText("Mensagem") as HTMLTextAreaElement).disabled).toBe(false));
@@ -301,7 +252,6 @@ describe("ChatView: continuidade e envio", () => {
     await waitFor(() => expect(vi.mocked(api.sendPrompt)).toHaveBeenCalledTimes(2));
     const approval = vi.mocked(api.sendPrompt).mock.calls[1][0];
     expect(approval.prompt).toContain("execute o plano agora");
-    expect(approval.prompt).not.toContain("Nunca rode a suíte inteira");
     expect(approval.permission).not.toBe("readOnly");
     expect(screen.getByLabelText("Modo de planejamento").getAttribute("aria-pressed")).toBe("false");
   });
@@ -390,7 +340,6 @@ describe("ChatView: continuidade e envio", () => {
 
   it("envia o sessionId da primeira resposta na segunda mensagem", async () => {
     render(<ChatView onPersist={() => {}} />);
-    fireEvent.click(screen.getByLabelText("Modo agente"));
     await waitFor(() => expect((screen.getByLabelText("Mensagem") as HTMLTextAreaElement).disabled).toBe(false));
 
     await send("primeira");
@@ -462,7 +411,6 @@ describe("ChatView: continuidade e envio", () => {
 
   it("troca de agente no meio da conversa sem perder contexto", async () => {
     render(<ChatView onPersist={() => {}} />);
-    fireEvent.click(screen.getByLabelText("Modo agente"));
     await waitFor(() => expect((screen.getByLabelText("Mensagem") as HTMLTextAreaElement).disabled).toBe(false));
 
     await send("crie a landing page");
@@ -571,7 +519,6 @@ describe("Progresso de um plano novo", () => {
 
   it("envio sem etapas não abre o painel de progresso", async () => {
     render(<ChatView onPersist={() => {}} />);
-    fireEvent.click(screen.getByLabelText("Modo agente"));
     await waitFor(() => expect((screen.getByLabelText("Mensagem") as HTMLTextAreaElement).disabled).toBe(false));
     const panel = screen.getByRole("complementary", { name: "Painel lateral" });
 
@@ -584,7 +531,6 @@ describe("Progresso de um plano novo", () => {
 
   it("o painel de progresso abre quando a tarefa cria etapas e fecha quando a execução termina", async () => {
     render(<ChatView onPersist={() => {}} />);
-    fireEvent.click(screen.getByLabelText("Modo agente"));
     await waitFor(() => expect((screen.getByLabelText("Mensagem") as HTMLTextAreaElement).disabled).toBe(false));
     const panel = screen.getByRole("complementary", { name: "Painel lateral" });
 
@@ -840,17 +786,15 @@ describe("ChatView: subagente em segundo plano", () => {
     vi.clearAllMocks();
   });
 
-  it("conversa salva no modo planejar, sem o campo agente, abre com Planejar ligado", async () => {
+  it("conversa salva no modo planejar abre com Planejar ligado", async () => {
     render(<ChatView initial={{ ...conversation, planning: true }} onPersist={() => {}} />);
     await waitFor(() => expect((screen.getByLabelText("Mensagem") as HTMLTextAreaElement).disabled).toBe(false));
 
     expect(screen.getByLabelText("Modo de planejamento").getAttribute("aria-pressed")).toBe("true");
-    expect(screen.getByLabelText("Modo agente").getAttribute("aria-pressed")).toBe("false");
   });
 
   it("/subagente inicia a tarefa e a conclusão vira mensagem na conversa", async () => {
     render(<ChatView initial={conversation} onPersist={() => {}} />);
-    fireEvent.click(screen.getByLabelText("Modo agente"));
     await waitFor(() => expect((screen.getByLabelText("Mensagem") as HTMLTextAreaElement).disabled).toBe(false));
 
     fireEvent.change(screen.getByLabelText("Mensagem"), { target: { value: "/subagente revisar os testes" } });

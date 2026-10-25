@@ -57,9 +57,6 @@ pub struct RunRequest {
     /// Modo navegador: a Luna recebe as instruções do navegador (ver BROWSER_IDENTITY). Ausente = modo LunaCode.
     #[serde(default)]
     pub browser_mode: bool,
-    /// Modo agente: a pesquisa na web (só WebSearch) sai sem pedido a cada uso. Ausente = sem pesquisa liberada.
-    #[serde(default)]
-    pub web_search: bool,
     /// Etapas delegadas ao subagente do orquestrador (só o Claude usa). Ausente = sem subagente.
     #[serde(default)]
     pub subagents: bool,
@@ -386,7 +383,6 @@ mod tests {
             context_window: None,
             browser: Default::default(),
             browser_mode: false,
-            web_search: false,
             subagents: false,
             long_cache: false,
             images: Vec::new(),
