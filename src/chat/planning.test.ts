@@ -243,6 +243,13 @@ describe("modo agente", () => {
     expect(text).toContain("Contexto entendido");
   });
 
+  it("pede a melhor prática em uma ou duas frases e deixa a decisão final com o usuário", () => {
+    const text = agentInstruction(DEFAULT_PLAN_TARGET);
+
+    expect(text).toContain("melhor prática");
+    expect(text).toContain("A decisão final é do usuário");
+  });
+
   it("diz ao agente o que fazer quando a sessão não tem ferramenta de pesquisa", () => {
     expect(agentInstruction(DEFAULT_PLAN_TARGET)).toContain("não tiver ferramenta de pesquisa");
   });
