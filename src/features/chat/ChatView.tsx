@@ -1090,7 +1090,7 @@ ${cliPrompt}`;
         images,
         // Sem modo nem plano, o protocolo vem antes do contexto, para não cair entre o rótulo e a mensagem.
         prompt: (plan || mode ? "" : QUESTION_PROTOCOL + "\n\n") +
-          withContext(preamble, plan ? withPlanInstruction(cliPrompt, loadPlanTarget()) : mode ? mode.instruction + "\n\n" + QUESTION_PROTOCOL + "\n\n" + cliPrompt : cliPrompt),
+          withContext(preamble, plan ? withPlanInstruction(cliPrompt, loadPlanTarget(), route.provider === "claude") : mode ? mode.instruction + "\n\n" + QUESTION_PROTOCOL + "\n\n" + cliPrompt : cliPrompt),
         sessionId,
         cwd,
         permission: plan || mode ? "readOnly" : permission,

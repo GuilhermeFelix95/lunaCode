@@ -21,12 +21,12 @@ describe("modo plano", () => {
   it("mantém o pedido do usuário depois da instrução de planejamento", () => {
     const prompt = withPlanInstruction("crie um login");
 
-    expect(prompt.startsWith(planInstruction(DEFAULT_PLAN_TARGET))).toBe(true);
+    expect(prompt.startsWith(planInstruction(DEFAULT_PLAN_TARGET, false))).toBe(true);
     expect(prompt.endsWith("crie um login")).toBe(true);
   });
 
   it("a meta de contexto aparece na instrução, e o agente tem de marcar a % em toda resposta", () => {
-    const text = planInstruction(65);
+    const text = planInstruction(65, true);
 
     expect(text).toContain("65%");
     expect(text).toContain("Contexto entendido: X%");
@@ -90,8 +90,8 @@ describe("modo plano", () => {
   });
 
   it("a instrução proíbe editar antes da aprovação", () => {
-    expect(planInstruction(DEFAULT_PLAN_TARGET)).toContain("Não altere arquivos");
-    expect(planInstruction(DEFAULT_PLAN_TARGET)).toContain("Só comece a executar depois que o usuário aprovar");
+    expect(planInstruction(DEFAULT_PLAN_TARGET, true)).toContain("Não altere arquivos");
+    expect(planInstruction(DEFAULT_PLAN_TARGET, true)).toContain("Só comece a executar depois que o usuário aprovar");
   });
 
   it("a aprovação pede execução, sem a instrução de planejamento", () => {
@@ -137,7 +137,7 @@ describe("extractPlan", () => {
   });
 
   it("o prompt do modo plano pede o resumo e o bloco luna-plano", () => {
-    const text = planInstruction(DEFAULT_PLAN_TARGET);
+    const text = planInstruction(DEFAULT_PLAN_TARGET, true);
 
     expect(text).toContain("luna-plano");
     expect(text).toContain("## Não mexer");
@@ -231,8 +231,15 @@ describe("aprovação pede para fechar todas as etapas", () => {
 });
 
 describe("pesquisa do Planejar", () => {
+  it("sem ferramenta de pesquisa, o plano avisa em vez de inventar fontes", () => {
+    const text = planInstruction(DEFAULT_PLAN_TARGET, false);
+
+    expect(text).toContain("Esta sessão não tem ferramenta de pesquisa");
+    expect(text).not.toContain("pesquise na web");
+  });
+
   it("o plano pesquisa a boa prática ao entender o contexto e deixa a decisão com o usuário", () => {
-    const text = planInstruction(DEFAULT_PLAN_TARGET);
+    const text = planInstruction(DEFAULT_PLAN_TARGET, true);
 
     expect(text).toContain("pesquise na web");
     expect(text).toContain("A decisão final é do usuário");
