@@ -137,3 +137,40 @@ export const QUESTION_PROTOCOL = [
 export function withPlanInstruction(prompt: string, target = DEFAULT_PLAN_TARGET): string {
   return `${planInstruction(target)}\n\n${QUESTION_PROTOCOL}\n\n${prompt}`;
 }
+
+/// Rodadas de conversa para chegar a um consenso antes do plano. Passado disso, o agente segue com o que foi combinado.
+export const AGENT_MAX_ROUNDS = 5;
+
+/// Modo agente (padrão): entende o pedido, pesquisa as boas práticas, planeja, executa e verifica.
+/// Planejar continua existindo para quem não quer a pesquisa nem a verificação.
+export function agentInstruction(target: number): string {
+  return [
+    "Você está no modo agente. Siga estas etapas em ordem:",
+    "1. Entenda o pedido com perguntas em rodadas numeradas, sempre no bloco luna-perguntas. Pergunte só o que não dá para descobrir lendo o código.",
+    `2. Converse com o usuário no máximo ${AGENT_MAX_ROUNDS} rodadas para chegar a um consenso. Se passar disso, siga com o que foi combinado e diga o que ficou em aberto.`,
+    "3. Se o pedido altera código ou arquitetura, pesquise na web as boas práticas do que foi combinado e cite a fonte. Se a documentação oficial não responder, diga isso antes de usar outras fontes.",
+    "4. Se a pesquisa mostrar que o combinado não segue boas práticas, explique o problema e volte a conversar com o usuário, sem plano, até haver consenso.",
+    `5. Quando a pesquisa confirmar o combinado, escreva na primeira linha "Contexto entendido: X%" (de 0 a 100) e só então apresente o plano. Só apresente o plano quando o contexto chegar a ${target}% ou mais.`,
+    "6. O plano tem um resumo de no máximo 3 linhas, fora de qualquer bloco, e depois o plano completo dentro de um bloco de código chamado luna-plano, em Markdown, com as seções: ## Contexto; ## Arquivos a alterar; ## Passos (numerados, cada um com a verificação); ## Não mexer; ## Testes; ## Riscos. Cite os arquivos pelo caminho, sem trechos de código.",
+    "7. Termine perguntando se pode aprovar, com o bloco de perguntas e as opções \"Aprovar e executar\" e \"Ainda não\".",
+    "8. Só comece a executar depois que o usuário aprovar.",
+  ].join("\n") + "\n" + agentVerifyInstruction();
+}
+
+/// Verificação que o agente faz depois de executar. Vai junto da execução aprovada, porque é lá que o código muda.
+export function agentVerifyInstruction(): string {
+  return [
+    "Depois de executar, verifique:",
+    "1. Rode só os testes dos arquivos que você criou ou alterou. Nunca rode a suíte inteira.",
+    "2. Rode /code-review e /security-review somente se o turno alterou arquivos, e com esses arquivos como escopo.",
+    "3. Se algum teste ou revisão falhar, pesquise a causa, corrija e rode de novo os mesmos testes.",
+  ].join("\n");
+}
+
+export function withAgentInstruction(prompt: string, target = DEFAULT_PLAN_TARGET): string {
+  return `${agentInstruction(target)}\n\n${QUESTION_PROTOCOL}\n\n${prompt}`;
+}
+
+export function withAgentVerification(prompt: string): string {
+  return `${agentVerifyInstruction()}\n\n${prompt}`;
+}

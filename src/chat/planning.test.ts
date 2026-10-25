@@ -1,5 +1,7 @@
 import { afterEach, describe, expect, it } from "vitest";
 import {
+  AGENT_MAX_ROUNDS,
+  agentInstruction,
   APPROVAL_PROMPT,
   approvalPrompt,
   contextUnderstood,
@@ -13,6 +15,9 @@ import {
   QUESTION_PROTOCOL,
   savePlanTarget,
   streamingPlan,
+  agentVerifyInstruction,
+  withAgentInstruction,
+  withAgentVerification,
   withPlanInstruction,
 } from "./planning";
 
@@ -226,5 +231,41 @@ describe("aprovação pede para fechar todas as etapas", () => {
     for (const provider of ["copilot", "antigravity"] as const) {
       expect(approvalPrompt(null, provider)).not.toMatch(/marque todas as etapas/);
     }
+  });
+});
+
+describe("modo agente", () => {
+  it("a instrução cobre pesquisa na web, consenso com limite, revisões e testes só dos arquivos alterados", () => {
+    const text = agentInstruction(DEFAULT_PLAN_TARGET);
+
+    expect(text).toContain("pesquise na web");
+    expect(text).toContain(`no máximo ${AGENT_MAX_ROUNDS} rodadas`);
+    expect(text).toContain("/code-review");
+    expect(text).toContain("/security-review");
+    expect(text).toContain("arquivos que você criou ou alterou");
+    expect(text).toContain("Nunca rode a suíte inteira");
+    expect(text).toContain("Contexto entendido");
+  });
+
+  it("só roda as revisões quando o turno alterou arquivos", () => {
+    expect(agentInstruction(DEFAULT_PLAN_TARGET)).toContain("somente se o turno alterou arquivos");
+  });
+
+  it("mantém o pedido do usuário depois da instrução do agente", () => {
+    const prompt = withAgentInstruction("crie um login");
+
+    expect(prompt.startsWith(agentInstruction(DEFAULT_PLAN_TARGET))).toBe(true);
+    expect(prompt.endsWith("crie um login")).toBe(true);
+  });
+});
+
+describe("verificação do modo agente", () => {
+  it("a execução aprovada leva a verificação antes do pedido", () => {
+    const prompt = withAgentVerification("execute o plano agora");
+
+    expect(prompt.startsWith(agentVerifyInstruction())).toBe(true);
+    expect(prompt.endsWith("execute o plano agora")).toBe(true);
+    expect(agentVerifyInstruction()).toContain("Nunca rode a suíte inteira");
+    expect(agentVerifyInstruction()).toContain("somente se o turno alterou arquivos");
   });
 });
