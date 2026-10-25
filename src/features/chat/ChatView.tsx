@@ -215,7 +215,7 @@ export function ChatView({
   const [agent, setAgent] = useState(initial?.agent ?? !initial?.planning);
   const [planning, setPlanning] = useState(initial?.planning ?? false);
   // Conversa no fluxo de plano (Agente ou Planejar): perguntas, plano e aprovação são os mesmos.
-  const planFlow = planning || agent;
+  const planFlow = (planning || agent) && !browserMode;
   // Último plano da conversa: a resposta do modo plano (ou da spec) fica no painel.
   const [plan, setPlan] = useState<string | undefined>(initial?.plan);
   // O último turno no modo plano trouxe o plano pronto, e não só uma rodada de perguntas: só então aparece o card de aprovação.
@@ -1253,7 +1253,7 @@ ${cliPrompt}`;
       }
       const mode = modes.find((m) => m.id === modeId);
       try {
-        const task = await startBackgroundTask(luna.task, cwd, planFlow || mode ? "readOnly" : permission, conversationId);
+        const task = await startBackgroundTask(luna.task, cwd, planning || mode ? "readOnly" : permission, conversationId);
         setBackgroundTasks((current) => [...current.filter((t) => t.id !== task.id), task]);
       } catch (err) {
         setNotes((current) => [...current, t("chat.backgroundStartFailed", { error: String(err) })]);
@@ -1702,7 +1702,7 @@ ${outgoing}`
         modes={modes}
         mode={modeId}
         onMode={setModeId}
-        planning={planFlow}
+        planning={planning}
         agentMode={agent}
         onToggleAgentMode={toggleAgent}
         onTogglePlanning={togglePlanning}

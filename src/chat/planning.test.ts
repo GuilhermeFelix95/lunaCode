@@ -235,15 +235,11 @@ describe("aprovação pede para fechar todas as etapas", () => {
 });
 
 describe("modo agente", () => {
-  it("a instrução cobre pesquisa na web, consenso com limite, revisões e testes só dos arquivos alterados", () => {
+  it("a instrução cobre pesquisa na web, consenso com limite e o plano", () => {
     const text = agentInstruction(DEFAULT_PLAN_TARGET);
 
     expect(text).toContain("pesquise na web");
     expect(text).toContain(`no máximo ${AGENT_MAX_ROUNDS} rodadas`);
-    expect(text).toContain("/code-review");
-    expect(text).toContain("/security-review");
-    expect(text).toContain("arquivos que você criou ou alterou");
-    expect(text).toContain("Nunca rode a suíte inteira");
     expect(text).toContain("Contexto entendido");
   });
 
@@ -251,8 +247,11 @@ describe("modo agente", () => {
     expect(agentInstruction(DEFAULT_PLAN_TARGET)).toContain("não tiver ferramenta de pesquisa");
   });
 
-  it("só roda as revisões quando o turno alterou arquivos", () => {
-    expect(agentInstruction(DEFAULT_PLAN_TARGET)).toContain("somente se o turno alterou arquivos");
+  it("o turno de planejamento não traz a verificação, que só vale depois da execução", () => {
+    const text = agentInstruction(DEFAULT_PLAN_TARGET);
+
+    expect(text).not.toContain("/code-review");
+    expect(text).not.toContain("Nunca rode a suíte inteira");
   });
 
   it("mantém o pedido do usuário depois da instrução do agente", () => {

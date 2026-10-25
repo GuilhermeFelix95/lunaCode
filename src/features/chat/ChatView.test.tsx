@@ -276,7 +276,10 @@ describe("ChatView: continuidade e envio", () => {
     await waitFor(() => expect((screen.getByLabelText("Mensagem") as HTMLTextAreaElement).disabled).toBe(false));
 
     await send("abra o site da Luna");
-    expect(vi.mocked(api.sendPrompt).mock.calls[0][0].webSearch).toBe(false);
+    const request = vi.mocked(api.sendPrompt).mock.calls[0][0];
+    expect(request.webSearch).toBe(false);
+    expect(request.permission).not.toBe("readOnly");
+    expect(request.prompt).not.toContain("Você está no modo agente");
   });
 
   it("no modo plano, responder 'Aprovar e executar' pelo seletor desliga o plano e executa", async () => {

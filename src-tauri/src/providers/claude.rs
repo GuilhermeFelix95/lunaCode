@@ -70,7 +70,8 @@ pub fn args(request: &RunRequest) -> Vec<String> {
         allowed_tools.push(allowed.to_string());
     }
     // Modo agente: a pesquisa na web sai sem pedido a cada uso. Um só `--allowedTools`, que aceita vários valores.
-    if request.web_search {
+    // O modo navegador não tem pesquisa: a regra fica aqui, e não só no cliente.
+    if request.web_search && !request.browser_mode {
         allowed_tools.extend(WEB_TOOLS.iter().map(|tool| tool.to_string()));
     }
     if !allowed_tools.is_empty() {
@@ -534,6 +535,16 @@ mod tests {
 
         let at = flags.iter().position(|arg| arg == "--allowedTools").expect("sem --allowedTools");
         assert_eq!(flags[at + 1..at + 3], ["WebSearch", "WebFetch"], "{flags:?}");
+    }
+
+    #[test]
+    fn modo_navegador_nao_libera_pesquisa_na_web_mesmo_com_o_campo() {
+        let mut request = request_with_web_search(true);
+        request.browser_mode = true;
+
+        let flags = args(&request);
+
+        assert!(!flags.iter().any(|arg| arg == "WebSearch" || arg == "WebFetch"), "{flags:?}");
     }
 
     #[test]

@@ -154,7 +154,7 @@ export function agentInstruction(target: number): string {
     "6. O plano tem um resumo de no máximo 3 linhas, fora de qualquer bloco, e depois o plano completo dentro de um bloco de código chamado luna-plano, em Markdown, com as seções: ## Contexto; ## Arquivos a alterar; ## Passos (numerados, cada um com a verificação); ## Não mexer; ## Testes; ## Riscos. Cite os arquivos pelo caminho, sem trechos de código.",
     "7. Termine perguntando se pode aprovar, com o bloco de perguntas e as opções \"Aprovar e executar\" e \"Ainda não\".",
     "8. Só comece a executar depois que o usuário aprovar.",
-  ].join("\n") + "\n" + agentVerifyInstruction();
+  ].join("\n");
 }
 
 /// Verificação que o agente faz depois de executar. Vai junto da execução aprovada, porque é lá que o código muda.
