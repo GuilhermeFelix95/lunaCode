@@ -369,6 +369,7 @@ mod tests {
                 context_window: None,
                 browser: Default::default(),
                 browser_mode: false,
+                web_search: false,
                 subagents: false,
                 long_cache: false,
                 images: Vec::new(),
@@ -398,6 +399,7 @@ mod tests {
             context_window: None,
             browser: Default::default(),
             browser_mode: false,
+            web_search: false,
             subagents: false,
             long_cache: false,
             images: vec![
@@ -428,6 +430,7 @@ mod tests {
             context_window: None,
             browser: Default::default(),
             browser_mode: false,
+            web_search: false,
             subagents: false,
             long_cache: false,
             images: Vec::new(),
@@ -470,6 +473,7 @@ mod tests {
             long_cache: false,
             browser: crate::providers::AgentBrowser::Builtin,
             browser_mode: false,
+            web_search: false,
             subagents: false,
             images: Vec::new(),
         };

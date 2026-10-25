@@ -24,6 +24,8 @@ export interface RunRequest {
   browserMode?: boolean;
   /** Etapas delegadas ao subagente do orquestrador (só o Claude). Ausente = sem subagente. */
   subagents?: boolean;
+  /** Pesquisa na web (só WebSearch) nos turnos de plano. Ausente = não. */
+  webSearch?: boolean;
   /** Modelo da lista da CLI. Ausente = padrão da CLI. */
   model?: string;
   /** Nível de esforço com o nome da CLI. Ausente = padrão. */

@@ -165,6 +165,7 @@ mod tests {
             permission,
             browser: Default::default(),
             browser_mode: false,
+            web_search: false,
             subagents: false,
             model: None,
             effort: None,
