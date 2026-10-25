@@ -250,6 +250,10 @@ describe("modo agente", () => {
     expect(text).toContain("A decisão final é do usuário");
   });
 
+  it("responde direto, sem plano, quando a mensagem não pede alteração", () => {
+    expect(agentInstruction(DEFAULT_PLAN_TARGET)).toContain("responda direto, sem plano");
+  });
+
   it("diz ao agente o que fazer quando a sessão não tem ferramenta de pesquisa", () => {
     expect(agentInstruction(DEFAULT_PLAN_TARGET)).toContain("não tiver ferramenta de pesquisa");
   });
